@@ -33,7 +33,7 @@ Observed outputs:
 - `output/2022-05-28 23.00.21_intervals.json`
 - `output/2022-05-28 23.00.21_edited.blend`
 
-## Runtime Notes (Important)
+## Runtime Notes
 
 1. WhisperX image CLI compatibility:
    - `--word_timestamps` is not accepted by this image tag and was removed.
@@ -44,19 +44,8 @@ Observed outputs:
    - Stage 1 runs as `--user "0:0"` to avoid runtime errors seen with host UID mapping.
    - Side effect: transcript artifacts are owned by `root` on host.
 4. Blender stability:
-   - Stage 3 is invoked with `--factory-startup` to avoid failures from broken local add-ons.
    - Stage 3 uses Blender 5-compatible sequence API fallback (`sequence_editor.strips`).
-
-## No-Diarization Policy
-
-- Do not pass `--diarize`.
-- Do not use `--hf_token`.
-- Do not add diarization-specific dependencies or flows.
 
 ## Next Documentation Sync
 
-Keep `README.md` and `AGENTS.md` aligned with:
-
-- actual script flags
-- tested command examples
-- known runtime quirks above
+Keep `README.md` and `AGENTS.md` aligned.

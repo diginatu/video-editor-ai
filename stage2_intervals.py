@@ -179,6 +179,12 @@ def main() -> None:
         if gap > args.silence_threshold:
             excludes.append((current_end, next_start))
 
+    if words and words[0][0] > args.silence_threshold:
+        excludes.append((0.0, words[0][0]))
+
+    if words and (duration_sec - words[-1][1]) > args.silence_threshold:
+        excludes.append((words[-1][1], duration_sec))
+
     bounded_excludes = [
         (max(0.0, start), min(duration_sec, end))
         for start, end in excludes

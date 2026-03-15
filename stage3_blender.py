@@ -2,10 +2,14 @@
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
 import bpy
+
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
 def parse_blender_args(argv: list[str]) -> argparse.Namespace:
@@ -27,7 +31,8 @@ def sec_to_frames(seconds: float, fps: float) -> int:
 
 
 def reset_scene() -> bpy.types.Scene:
-    bpy.ops.wm.read_factory_settings(use_empty=True)
+    bpy.ops.wm.read_factory_settings(use_empty=False)
+    bpy.ops.wm.read_homefile(app_template="Video_Editing")
     scene = bpy.context.scene
     scene.sequence_editor_create()
     return scene
@@ -80,6 +85,15 @@ def main() -> None:
         src_start_frame = max(0, sec_to_frames(start_sec, effective_fps))
         src_end_frame = max(src_start_frame + 1, sec_to_frames(end_sec, effective_fps))
 
+        logging.info(
+            "Strip %d: source %.3fs–%.3fs → frames %d–%d",
+            idx,
+            start_sec,
+            end_sec,
+            src_start_frame,
+            src_end_frame,
+        )
+
         strip = sequence_collection.new_movie(
             name=f"keep_{idx:04d}",
             filepath=str(source_path),
@@ -91,22 +105,59 @@ def main() -> None:
         bounded_start = min(src_start_frame, full_duration - 1)
         bounded_end = min(max(src_end_frame, bounded_start + 1), full_duration)
         keep_frame_count = bounded_end - bounded_start
-        frame_offset_start = bounded_start
-        frame_offset_end = full_duration - bounded_end
 
-        strip.frame_offset_start = frame_offset_start
-        strip.frame_offset_end = frame_offset_end
+        if bounded_start != src_start_frame or bounded_end != src_end_frame:
+            logging.warning(
+                "Strip %d: interval clamped to clip duration (%d frames). "
+                "Requested frames %d–%d, applied %d–%d",
+                idx,
+                full_duration,
+                src_start_frame,
+                src_end_frame,
+                bounded_start,
+                bounded_end,
+            )
 
-        try:
-            strip.frame_final_start = timeline_cursor
-            strip.frame_final_end = timeline_cursor + keep_frame_count
-        except AttributeError:
-            pass
+        strip.animation_offset_start = bounded_start
+        strip.animation_offset_end = full_duration - bounded_end
+
+        sound_strip = sequence_collection.new_sound(
+            name=f"keep_{idx:04d}_audio",
+            filepath=str(source_path),
+            channel=2,
+            frame_start=timeline_cursor,
+        )
+        sound_strip.animation_offset_start = bounded_start
+        sound_strip.animation_offset_end = full_duration - bounded_end
+
+        if strip.frame_final_duration != keep_frame_count:
+            logging.warning(
+                "Strip %d: frame_final_duration=%d differs from keep_frame_count=%d",
+                idx,
+                strip.frame_final_duration,
+                keep_frame_count,
+            )
+
+        logging.info(
+            "Strip %d: animation_offset_start=%d animation_offset_end=%d "
+            "keep_frames=%d timeline_cursor=%d",
+            idx,
+            bounded_start,
+            full_duration - bounded_end,
+            keep_frame_count,
+            timeline_cursor,
+        )
 
         timeline_cursor += keep_frame_count
 
     scene.frame_end = max(scene.frame_start, timeline_cursor - 1)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logging.info(
+        "Done: %d strip(s) placed, scene ends at frame %d",
+        len(keep_intervals),
+        scene.frame_end,
+    )
     bpy.ops.wm.save_as_mainfile(filepath=str(output_path))
 
 
