@@ -95,18 +95,29 @@ def load_filler_set(config_path: Path, language: str) -> set[str]:
 
 def flatten_words(whisperx_data: dict) -> List[Tuple[float, float, str]]:
     words: List[Tuple[float, float, str]] = []
+
     for segment in whisperx_data.get("segments", []):
+        seg_end = float(segment.get("end") or 0.0)
+        raw_seg: List[Tuple[float, str]] = []
         for word in segment.get("words", []):
             start = word.get("start")
-            end = word.get("end")
             token = word.get("word", "")
-            if start is None or end is None:
+            if start is None:
                 continue
-            start_f = float(start)
-            end_f = float(end)
-            if end_f <= start_f:
-                continue
-            words.append((start_f, end_f, token))
+            raw_seg.append((float(start), token))
+        raw_seg.sort(key=lambda item: item[0])
+
+        for i, (start, token) in enumerate(raw_seg):
+            if i + 1 < len(raw_seg):
+                # Within segment: end = next char's start (no intra-segment gaps)
+                end = min(start + 0.02, raw_seg[i + 1][0])
+            else:
+                # Last char of segment: use reliable segment-level end
+                end = max(seg_end, start + 0.02)
+            if end <= start:
+                end = start + 0.02
+            words.append((start, end, token))
+
     words.sort(key=lambda item: item[0])
     return words
 
@@ -186,38 +197,41 @@ def collect_captions(
         if not seg_text or not char_entries:
             continue
 
-        # Build a flat list of per-character (start, end) times aligned
-        # to seg_text. WhisperX Japanese words[] is character-level.
-        # Entries with score=0.0 have placeholder times (end <= start);
-        # for those, inherit the last valid timestamp.
-        char_times: List[Tuple[float, float]] = []
-        last_s = float(char_entries[0].get("start") or 0.0)
-        last_e = float(char_entries[0].get("end") or 0.0)
+        # Build flat list of char start times aligned to seg_text characters.
+        # Inherit last valid start for score=0.0 placeholder entries.
+        char_starts: List[float] = []
+        last_valid = float(char_entries[0].get("start") or 0.0)
         for entry in char_entries:
             s = entry.get("start")
-            e = entry.get("end")
-            if s is not None and e is not None and float(e) > float(s):
-                last_s, last_e = float(s), float(e)
-            char_times.append((last_s, last_e))
+            if s is not None:
+                last_valid = float(s)
+            char_starts.append(last_valid)
 
-        # Align char_times length to seg_text character count
-        while len(char_times) < len(seg_text):
-            char_times.append(char_times[-1])
-        char_times = char_times[: len(seg_text)]
+        # Align to seg_text length
+        while len(char_starts) < len(seg_text):
+            char_starts.append(char_starts[-1] if char_starts else 0.0)
+        char_starts = char_starts[: len(seg_text)]
 
-        # Morphological analysis: get surface form of each morpheme
+        # Map each morpheme to (surface, start, end) using char_starts.
+        # morpheme start = char_starts[first char index]
+        # morpheme end   = char_starts[last char index + 1] if available,
+        #                  else char_starts[last char index] + 0.02
         morphemes: List[str] = [w.surface for w in tagger(seg_text)]
-
-        # Map each morpheme to its time span by consuming char_times
         morpheme_times: List[Tuple[str, float, float]] = []
         char_cursor = 0
         for morpheme in morphemes:
             m_len = len(morpheme)
-            start_idx = min(char_cursor, len(char_times) - 1)
-            end_idx = max(start_idx, min(char_cursor + m_len - 1, len(char_times) - 1))
-            morpheme_times.append(
-                (morpheme, char_times[start_idx][0], char_times[end_idx][1])
+            start_idx = min(char_cursor, len(char_starts) - 1)
+            next_idx = min(char_cursor + m_len, len(char_starts))
+            m_start = char_starts[start_idx]
+            m_end = (
+                char_starts[next_idx]
+                if next_idx < len(char_starts)
+                else char_starts[-1] + 0.02
             )
+            if m_end <= m_start:
+                m_end = m_start + 0.02
+            morpheme_times.append((morpheme, m_start, m_end))
             char_cursor += m_len
 
         # Group morphemes into caption chunks
@@ -293,6 +307,7 @@ def main() -> None:
         current_end = words[idx][1]
         next_start = words[idx + 1][0]
         gap = next_start - current_end
+        # print(f"[debug] gap between '{words[idx][2]}' and '{words[idx + 1][2]}': {gap:.3f}s")
         if gap > args.silence_threshold:
             excludes.append((current_end, next_start))
 
