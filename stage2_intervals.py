@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 import yaml
+from fugashi import Tagger
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,6 +38,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.0,
         help="Minimum keep interval length in seconds",
+    )
+    parser.add_argument(
+        "--caption_max_morphemes",
+        type=int,
+        default=12,
+        help="Maximum morphemes per caption chunk (default: 12)",
+    )
+    parser.add_argument(
+        "--caption_max_duration",
+        type=float,
+        default=4.0,
+        help="Maximum seconds per caption chunk (default: 4.0)",
     )
     parser.add_argument(
         "--output", required=True, dest="output_path", help="Output JSON path"
@@ -154,27 +167,91 @@ def infer_source_file(whisperx_data: dict, json_path: Path) -> str:
 def collect_captions(
     whisperx_data: dict,
     keep_intervals: List[dict],
+    max_duration: float = 4.0,
+    max_morphemes: int = 12,
 ) -> List[dict]:
+    tagger = Tagger("-Owakati")
     captions = []
+
     for segment in whisperx_data.get("segments", []):
-        seg_start = segment.get("start")
-        seg_end = segment.get("end")
-        text = segment.get("text", "").strip()
-        if seg_start is None or seg_end is None or not text:
+        seg_text = segment.get("text", "").strip()
+        char_entries = segment.get("words", [])
+        if not seg_text or not char_entries:
             continue
-        seg_start = float(seg_start)
-        seg_end = float(seg_end)
+
+        # Build a flat list of per-character (start, end) times aligned
+        # to seg_text. WhisperX Japanese words[] is character-level.
+        # Entries with score=0.0 have placeholder times (end <= start);
+        # for those, inherit the last valid timestamp.
+        char_times: List[Tuple[float, float]] = []
+        last_s = float(char_entries[0].get("start") or 0.0)
+        last_e = float(char_entries[0].get("end") or 0.0)
+        for entry in char_entries:
+            s = entry.get("start")
+            e = entry.get("end")
+            if s is not None and e is not None and float(e) > float(s):
+                last_s, last_e = float(s), float(e)
+            char_times.append((last_s, last_e))
+
+        # Align char_times length to seg_text character count
+        while len(char_times) < len(seg_text):
+            char_times.append(char_times[-1])
+        char_times = char_times[: len(seg_text)]
+
+        # Morphological analysis: get surface form of each morpheme
+        morphemes: List[str] = [w.surface for w in tagger(seg_text)]
+
+        # Map each morpheme to its time span by consuming char_times
+        morpheme_times: List[Tuple[str, float, float]] = []
+        char_cursor = 0
+        for morpheme in morphemes:
+            m_len = len(morpheme)
+            start_idx = min(char_cursor, len(char_times) - 1)
+            end_idx = max(start_idx, min(char_cursor + m_len - 1, len(char_times) - 1))
+            morpheme_times.append(
+                (morpheme, char_times[start_idx][0], char_times[end_idx][1])
+            )
+            char_cursor += m_len
+
+        # Group morphemes into caption chunks
+        chunk: List[str] = []
+        chunk_start = 0.0
+        chunk_end = 0.0
+
+        for morpheme, m_start, m_end in morpheme_times:
+            if chunk:
+                if (m_end - chunk_start) > max_duration or len(chunk) >= max_morphemes:
+                    captions.append(
+                        {
+                            "start": round(chunk_start, 3),
+                            "end": round(chunk_end, 3),
+                            "text": "".join(chunk),
+                        }
+                    )
+                    chunk = []
+
+            if not chunk:
+                chunk_start = m_start
+            chunk.append(morpheme)
+            chunk_end = m_end
+
+        if chunk:
+            captions.append(
+                {
+                    "start": round(chunk_start, 3),
+                    "end": round(chunk_end, 3),
+                    "text": "".join(chunk),
+                }
+            )
+
+    # Retain only captions that overlap at least one keep interval
+    filtered = []
+    for cap in captions:
         for iv in keep_intervals:
-            if seg_start < iv["end"] and seg_end > iv["start"]:
-                captions.append(
-                    {
-                        "start": round(seg_start, 3),
-                        "end": round(seg_end, 3),
-                        "text": text,
-                    }
-                )
+            if cap["start"] < iv["end"] and cap["end"] > iv["start"]:
+                filtered.append(cap)
                 break
-    return captions
+    return filtered
 
 
 def main() -> None:
@@ -224,7 +301,12 @@ def main() -> None:
         if (end - start) >= args.min_keep
     ]
 
-    captions = collect_captions(whisperx_data, filtered_keep)
+    captions = collect_captions(
+        whisperx_data,
+        filtered_keep,
+        max_duration=args.caption_max_duration,
+        max_morphemes=args.caption_max_morphemes,
+    )
 
     output_data = {
         "source_file": infer_source_file(whisperx_data, json_path),

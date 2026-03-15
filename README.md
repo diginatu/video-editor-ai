@@ -17,6 +17,7 @@ The pipeline creates a rough-cut Blender project for human review and fine-tunin
 - Docker + Docker Compose
 - Blender available as `blender`
 - Python 3.10+
+- Python deps: `pip install -r requirements.txt` (installs `fugashi[unidic-lite]`)
 
 ## Repository Layout
 
@@ -81,7 +82,11 @@ python stage2_intervals.py \
   --language ja \
   --silence_threshold 1.5 \
   --min_keep 1.0 \
+  --caption_max_morphemes 12 \
+  --caption_max_duration 4.0 \
   --output output/myvideo_intervals.json
+
+Caption chunks now use `fugashi` morphological segmentation; tune size and timing with `--caption_max_morphemes` and `--caption_max_duration`.
 ```
 
 ### Stage 3 only (Blender VSE project)

@@ -33,6 +33,7 @@ Final deliverable is a `.blend` project for human editing.
 - Blender VSE API compatibility:
   - prefer `sequence_editor.sequences`
   - fallback to `sequence_editor.strips`
+- Stage 2 captions are chunked on `fugashi` morphemes using `fugashi[unidic-lite]`; defaults are 12 morphemes or 4.0 seconds per chunk.
 
 ## Preferred Validation
 

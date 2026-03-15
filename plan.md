@@ -13,7 +13,7 @@ Output is a reviewable `.blend`, not a final rendered export.
 ## Current Status
 
 - `docker-compose.yml` implemented for `ghcr.io/jim60105/whisperx:large-v3-ja` with GPU reservation and persistent cache.
-- `stage2_intervals.py` implemented with filler-word/silence exclusion, merge, invert, and min keep filtering.
+- `stage2_intervals.py` implemented with filler-word/silence exclusion, merge, invert, min keep filtering, and `fugashi`-based caption chunking on morpheme boundaries.
 - `stage3_blender.py` implemented with Blender arg split (`--`), source metadata detection, VSE strip packing, and `.blend` save.
 - `run_pipeline.sh` implemented and tested end-to-end.
 
