@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import re
 import unicodedata
 from pathlib import Path
@@ -38,6 +39,18 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=1.0,
         help="Minimum keep interval length in seconds",
+    )
+    parser.add_argument(
+        "--pre_margin",
+        type=float,
+        default=1.0,
+        help="Seconds to extend each keep interval before its start (default: 1.0)",
+    )
+    parser.add_argument(
+        "--post_margin",
+        type=float,
+        default=1.0,
+        help="Seconds to extend each keep interval after its end (default: 1.0)",
     )
     parser.add_argument(
         "--caption_max_morphemes",
@@ -292,6 +305,37 @@ def collect_captions(
     return filtered
 
 
+def apply_margins(
+    intervals: List[dict],
+    pre_margin: float,
+    post_margin: float,
+    duration_sec: float,
+) -> List[dict]:
+    """
+    Expand each interval by pre_margin before start and post_margin
+    after end, clamp to [0, duration_sec], then merge overlaps.
+    """
+    if not intervals:
+        return intervals
+
+    expanded = []
+    for iv in intervals:
+        start = max(0.0, iv["start"] - pre_margin)
+        end = min(duration_sec, iv["end"] + post_margin)
+        expanded.append({"start": start, "end": end})
+
+    expanded.sort(key=lambda x: x["start"])
+
+    merged = [expanded[0]]
+    for iv in expanded[1:]:
+        if iv["start"] <= merged[-1]["end"]:
+            merged[-1]["end"] = max(merged[-1]["end"], iv["end"])
+        else:
+            merged.append(iv)
+
+    return merged
+
+
 def main() -> None:
     args = parse_args()
 
@@ -343,9 +387,22 @@ def main() -> None:
         if (end - start) >= args.min_keep
     ]
 
+    keep_intervals = apply_margins(
+        filtered_keep,
+        pre_margin=args.pre_margin,
+        post_margin=args.post_margin,
+        duration_sec=duration_sec,
+    )
+    logging.info(
+        "After margins (pre=%.2fs post=%.2fs): %d interval(s)",
+        args.pre_margin,
+        args.post_margin,
+        len(keep_intervals),
+    )
+
     captions = collect_captions(
         all_morpheme_times,
-        filtered_keep,
+        keep_intervals,
         max_duration=args.caption_max_duration,
         max_morphemes=args.caption_max_morphemes,
         min_morphemes=args.caption_min_morphemes,
@@ -356,7 +413,7 @@ def main() -> None:
     output_data = {
         "source_file": infer_source_file(whisperx_data, json_path),
         "duration_sec": round(duration_sec, 3),
-        "keep_intervals": filtered_keep,
+        "keep_intervals": keep_intervals,
         "captions": captions,
     }
 

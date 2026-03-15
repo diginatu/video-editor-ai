@@ -3,20 +3,26 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: ./run_pipeline.sh [--input-videos-dir DIR] [--output-dir DIR] <source> <language> [silence_threshold] [min_keep]"
+  echo "Usage: ./run_pipeline.sh [--input-videos-dir DIR] [--output-dir DIR] [--pre-margin SEC] [--post-margin SEC] <source> <language> [silence_threshold] [min_keep]"
   echo "  --input-videos-dir  DIR  Directory containing source videos (default: src_video)"
   echo "  --output-dir        DIR  Directory for all output artifacts (default: output)"
+  echo "  --pre-margin        SEC  Seconds to extend keep intervals before start (default: 1.0)"
+  echo "  --post-margin       SEC  Seconds to extend keep intervals after end (default: 1.0)"
   echo "  source                   Video filename (resolved under input-videos-dir) or explicit path"
   echo "  language                 Language code, e.g. ja, en"
 }
 
 INPUT_VIDEOS_DIR="src_video"
 OUTPUT_DIR="output"
+PRE_MARGIN="${PRE_MARGIN:-1.0}"
+POST_MARGIN="${POST_MARGIN:-1.0}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --input-videos-dir) INPUT_VIDEOS_DIR="$2"; shift 2 ;;
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
+    --pre-margin) PRE_MARGIN="$2"; shift 2 ;;
+    --post-margin) POST_MARGIN="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     --) shift; break ;;
     -*) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
@@ -84,6 +90,8 @@ python stage2_intervals.py \
   --language "$LANGUAGE" \
   --silence_threshold "$SILENCE_THRESHOLD" \
   --min_keep "$MIN_KEEP" \
+  --pre_margin "$PRE_MARGIN" \
+  --post_margin "$POST_MARGIN" \
   --output "$INTERVALS_JSON"
 
 echo "[Stage 3/3] Blender VSE project generation"

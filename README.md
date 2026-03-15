@@ -60,12 +60,13 @@ This produces outputs under `output/` (or your `--output-dir`), including:
 ## CLI
 
 ```bash
-./run_pipeline.sh [--input-videos-dir DIR] [--output-dir DIR] <source> <language> [silence_threshold] [min_keep]
+./run_pipeline.sh [--input-videos-dir DIR] [--output-dir DIR] [--pre-margin SEC] [--post-margin SEC] <source> <language> [silence_threshold] [min_keep]
 ```
 
 - Defaults: input videos under `src_video/`, outputs under `output/`.
 - If `<source>` contains `/`, it is treated as the exact path; otherwise it is resolved inside `--input-videos-dir`.
 - `silence_threshold` and `min_keep` keep their existing defaults of `1.5` and `1.0`.
+- `pre-margin`/`post-margin` extend keep intervals before/after by default `1.0s` and merge overlaps.
 
 ## Stage Commands
 
@@ -98,6 +99,8 @@ python stage2_intervals.py \
   --language ja \
   --silence_threshold 1.5 \
   --min_keep 1.0 \
+  --pre_margin 1.0 \
+  --post_margin 1.0 \
   --caption_max_morphemes 12 \
   --caption_min_morphemes 3 \
   --caption_max_duration 4.0 \
