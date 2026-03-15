@@ -83,10 +83,11 @@ python stage2_intervals.py \
   --silence_threshold 1.5 \
   --min_keep 1.0 \
   --caption_max_morphemes 12 \
+   --caption_min_morphemes 3 \
   --caption_max_duration 4.0 \
   --output output/myvideo_intervals.json
 
-Caption chunks now use `fugashi` morphological segmentation; tune size and timing with `--caption_max_morphemes` and `--caption_max_duration`.
+Caption chunks use `fugashi` morphological segmentation; tune size and timing with `--caption_max_morphemes`, `--caption_min_morphemes`, and `--caption_max_duration`.
 ```
 
 ### Stage 3 only (Blender VSE project)

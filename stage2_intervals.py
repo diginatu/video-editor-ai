@@ -52,6 +52,12 @@ def parse_args() -> argparse.Namespace:
         help="Maximum seconds per caption chunk (default: 4.0)",
     )
     parser.add_argument(
+        "--caption_min_morphemes",
+        type=int,
+        default=3,
+        help="Minimum morphemes before a chunk can be flushed (default: 3)",
+    )
+    parser.add_argument(
         "--output", required=True, dest="output_path", help="Output JSON path"
     )
     parser.add_argument(
@@ -169,6 +175,7 @@ def collect_captions(
     keep_intervals: List[dict],
     max_duration: float = 4.0,
     max_morphemes: int = 12,
+    min_morphemes: int = 3,
 ) -> List[dict]:
     tagger = Tagger("-Owakati")
     captions = []
@@ -220,7 +227,14 @@ def collect_captions(
 
         for morpheme, m_start, m_end in morpheme_times:
             if chunk:
-                if (m_end - chunk_start) > max_duration or len(chunk) >= max_morphemes:
+                speech_duration = chunk_end - chunk_start
+                silence_gap = m_start - chunk_end
+                should_flush = (
+                    (speech_duration > max_duration or len(chunk) >= max_morphemes)
+                    and len(chunk) >= min_morphemes
+                ) or silence_gap > max_duration
+
+                if should_flush:
                     captions.append(
                         {
                             "start": round(chunk_start, 3),
@@ -306,6 +320,7 @@ def main() -> None:
         filtered_keep,
         max_duration=args.caption_max_duration,
         max_morphemes=args.caption_max_morphemes,
+        min_morphemes=args.caption_min_morphemes,
     )
 
     output_data = {
