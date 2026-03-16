@@ -197,12 +197,8 @@ def build_speech_spans(whisperx_data: dict) -> List[Tuple[float, float]]:
         raw_entries = segment.get("words", [])
         entries = [e for e in raw_entries if e.get("start") is not None]
         for idx, entry in enumerate(entries):
-            start_raw = entry.get("start")
             end_raw = entry.get("end")
-
-            if start_raw is None:
-                continue
-            start = float(start_raw)
+            start = float(entry["start"])
 
             next_start = None
             if idx + 1 < len(entries):
@@ -294,8 +290,6 @@ def collect_captions(
     min_duration: float = 1.5,
     silence_flush: float = 1.5,
 ) -> List[dict]:
-    del min_duration
-
     keep_ranges = [
         (float(iv["start"]), float(iv["end"]))
         for iv in keep_intervals
@@ -315,29 +309,38 @@ def collect_captions(
     chunk_end = 0.0
     chunk_overlaps_keep = False
 
+    def flush_chunk() -> None:
+        if not chunk:
+            return
+        captions.append(
+            {
+                "start": round(chunk_start, 3),
+                "end": round(chunk_end, 3),
+                "text": "".join(chunk),
+            }
+        )
+
     for m_start, m_end, morpheme in morpheme_times:
         current_overlaps_keep = overlaps_keep(m_start, m_end)
         if chunk:
             speech_duration = chunk_end - chunk_start
             silence_gap = m_start - chunk_end
             crossed_keep_boundary = current_overlaps_keep != chunk_overlaps_keep
+
+            size_limit_reached = (
+                speech_duration > max_duration or len(chunk) >= max_morphemes
+            )
+            flush_allowed = (
+                len(chunk) >= min_morphemes and speech_duration >= min_duration
+            )
             should_flush = (
-                (
-                    (speech_duration > max_duration or len(chunk) >= max_morphemes)
-                    and len(chunk) >= min_morphemes
-                )
+                (size_limit_reached and flush_allowed)
                 or silence_gap > silence_flush
                 or crossed_keep_boundary
             )
 
             if should_flush:
-                captions.append(
-                    {
-                        "start": round(chunk_start, 3),
-                        "end": round(chunk_end, 3),
-                        "text": "".join(chunk),
-                    }
-                )
+                flush_chunk()
                 chunk = []
 
         if not chunk:
@@ -347,13 +350,7 @@ def collect_captions(
         chunk_end = m_end
 
     if chunk:
-        captions.append(
-            {
-                "start": round(chunk_start, 3),
-                "end": round(chunk_end, 3),
-                "text": "".join(chunk),
-            }
-        )
+        flush_chunk()
 
     return captions
 

@@ -1,6 +1,3 @@
-import json
-from pathlib import Path
-
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -241,8 +238,18 @@ def test_collect_captions_flush_and_preserve_silence_split_chunks():
 
 
 def test_build_speech_spans_caps_inflated_word_end_for_gap_detection():
-    whisperx_path = Path("tests/fixtures/whisperx_segment_motor.json")
-    whisperx_data = json.loads(whisperx_path.read_text())
+    whisperx_data = {
+        "segments": [
+            {
+                "text": "ICに",
+                "words": [
+                    {"word": "I", "start": 75.053, "end": 75.073},
+                    {"word": "C", "start": 75.073, "end": 80.06},
+                    {"word": "に", "start": 80.06, "end": 80.08},
+                ],
+            }
+        ]
+    }
 
     spans = s.build_speech_spans(whisperx_data)
 
