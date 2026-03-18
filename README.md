@@ -129,7 +129,7 @@ python stage2_intervals.py \
   --caption_silence_flush 1.5 \
   --output output/myvideo_intervals.json
 
-Keep-interval silence detection uses WhisperX word timings (`word.start`/`word.end`) with a per-word max-span cap (0.6s) so inflated token ends do not mask real pauses. Caption chunks use `fugashi` morpheme-level timing (`end = min(start+0.02s, next_morpheme_start)`) and are split on detected silence gaps and keep-boundary crossings. Captions are preserved as transcript chunks (not pre-filtered by keep intervals); Stage 3 maps each caption to overlapping keep ranges and skips non-overlapping chunks. Tune chunking with `--caption_max_morphemes`, `--caption_min_morphemes`, `--caption_max_duration`, `--caption_min_duration`, and `--caption_silence_flush`.
+Keep-interval silence detection uses WhisperX word timings (`word.start`/`word.end`) with a per-word max-span cap (0.6s) so inflated token ends do not mask real pauses. Caption chunks use `fugashi` morpheme-level timing (`end = min(start+0.02s, next_morpheme_start)`) and are split on detected silence gaps and keep-boundary crossings. Captions are preserved as transcript chunks and Stage 2 expands keep intervals to include caption spans so subtitle text is not dropped at Stage 3, then re-applies minimum keep duration (`--min_keep`) to avoid tiny strips. Tune chunking with `--caption_max_morphemes`, `--caption_min_morphemes`, `--caption_max_duration`, `--caption_min_duration`, and `--caption_silence_flush`.
 ```
 
 ### Stage 3 only (Blender VSE project)

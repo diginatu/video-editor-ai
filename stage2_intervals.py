@@ -386,6 +386,63 @@ def apply_margins(
     return merged
 
 
+def ensure_keep_covers_captions(
+    keep_intervals: List[dict], captions: List[dict], duration_sec: float
+) -> List[dict]:
+    """Expand keep intervals so every caption has timeline overlap."""
+    merged_input: List[Tuple[float, float]] = []
+
+    for iv in keep_intervals:
+        start = max(0.0, min(float(iv["start"]), duration_sec))
+        end = max(0.0, min(float(iv["end"]), duration_sec))
+        if end > start:
+            merged_input.append((start, end))
+
+    for cap in captions:
+        start = max(0.0, min(float(cap["start"]), duration_sec))
+        end = max(0.0, min(float(cap["end"]), duration_sec))
+        if end > start:
+            merged_input.append((start, end))
+
+    merged = merge_intervals(merged_input)
+    return [{"start": round(start, 3), "end": round(end, 3)} for start, end in merged]
+
+
+def enforce_min_keep_duration(
+    keep_intervals: List[dict], min_keep: float, duration_sec: float
+) -> List[dict]:
+    """Ensure each keep interval is at least min_keep seconds long."""
+    if min_keep <= 0.0:
+        return keep_intervals
+
+    expanded: List[Tuple[float, float]] = []
+    for iv in keep_intervals:
+        start = max(0.0, min(float(iv["start"]), duration_sec))
+        end = max(0.0, min(float(iv["end"]), duration_sec))
+        if end <= start:
+            continue
+
+        length = end - start
+        if length < min_keep:
+            missing = min_keep - length
+            grow_before = missing / 2.0
+            grow_after = missing - grow_before
+            start = max(0.0, start - grow_before)
+            end = min(duration_sec, end + grow_after)
+
+            length = end - start
+            if length < min_keep:
+                if start <= 0.0:
+                    end = min(duration_sec, start + min_keep)
+                elif end >= duration_sec:
+                    start = max(0.0, end - min_keep)
+
+        expanded.append((start, end))
+
+    merged = merge_intervals(expanded)
+    return [{"start": round(start, 3), "end": round(end, 3)} for start, end in merged]
+
+
 def main() -> None:
     args = parse_args()
 
@@ -458,6 +515,16 @@ def main() -> None:
         min_morphemes=args.caption_min_morphemes,
         min_duration=args.caption_min_duration,
         silence_flush=args.caption_silence_flush,
+    )
+    keep_intervals = ensure_keep_covers_captions(
+        keep_intervals,
+        captions,
+        duration_sec,
+    )
+    keep_intervals = enforce_min_keep_duration(
+        keep_intervals,
+        args.min_keep,
+        duration_sec,
     )
 
     output_data = {
