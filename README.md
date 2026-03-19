@@ -101,20 +101,18 @@ Notes:
 ```bash
 uv run python -m video_editor_ai.cli \
   --json output/myvideo.json \
-  --config config/filler_words.yaml \
-  --language ja \
   --silence_threshold 1.5 \
   --min_keep 1.0 \
   --pre_margin 1.0 \
   --post_margin 1.0 \
-  --caption_max_morphemes 12 \
-  --caption_min_morphemes 3 \
+  --caption_max_bunsetu 12 \
+  --caption_min_bunsetu 3 \
   --caption_max_duration 4.0 \
   --caption_min_duration 1.5 \
   --caption_silence_flush 1.5 \
   --output output/myvideo_intervals.json
 
-Keep-interval silence detection uses WhisperX word timings (`word.start`/`word.end`) with a per-word max-span cap (0.6s) so inflated token ends do not mask real pauses. Morpheme timing detects large intra-morpheme character gaps (> 0.6s) caused by WhisperX misalignment and snaps the morpheme start forward to the later character cluster so silence is not hidden inside a single morpheme. Caption chunks use `fugashi` morpheme-level timing (`end = min(start+0.02s, next_morpheme_start)`) and are split on detected silence gaps and keep-boundary crossings. Captions are preserved as transcript chunks and Stage 2 expands keep intervals to include caption spans so subtitle text is not dropped at Stage 3, then re-applies minimum keep duration (`--min_keep`) to avoid tiny strips. Tune chunking with `--caption_max_morphemes`, `--caption_min_morphemes`, `--caption_max_duration`, `--caption_min_duration`, and `--caption_silence_flush`.
+Keep-interval silence detection uses WhisperX word timings (`word.start`/`word.end`) with a per-word max-span cap (0.6s) so inflated token ends do not mask real pauses. Bunsetsu timing uses `ginza.bunsetu_spans(doc)` (GiNZA/spaCy) so particles and auxiliaries are attached to the preceding content word, producing natural subtitle line-break units. It detects large intra-bunsetsu character gaps (> 0.6s) caused by WhisperX misalignment and snaps the bunsetsu start forward to the later character cluster so silence is not hidden inside a single bunsetsu. Caption chunks use bunsetsu-level timing (`end = min(start+0.02s, next_bunsetu_start)`) and are split on detected silence gaps and keep-boundary crossings. Captions are preserved as transcript chunks and Stage 2 expands keep intervals to include caption spans so subtitle text is not dropped at Stage 3, then re-applies minimum keep duration (`--min_keep`) to avoid tiny strips. Tune chunking with `--caption_max_bunsetu`, `--caption_min_bunsetu`, `--caption_max_duration`, `--caption_min_duration`, and `--caption_silence_flush`.
 ```
 
 ### Stage 3 only (Blender VSE project)
@@ -124,26 +122,6 @@ blender --background --factory-startup --python-exit-code 1 --python src/video_e
   --source src_video/myvideo.mp4 \
   --intervals output/myvideo_intervals.json \
   --output output/myvideo_edited.blend
-```
-
-## Config
-
-`config/filler_words.yaml` contains language-specific filler terms used by Stage 2.
-
-Example:
-
-```yaml
-ja:
-  - えーと
-  - あのー
-  - うーん
-  - えっと
-  - まあ
-en:
-  - um
-  - uh
-  - like
-  - you know
 ```
 
 ## Operational Notes

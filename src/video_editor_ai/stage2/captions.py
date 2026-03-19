@@ -1,4 +1,4 @@
-"""Caption chunking from morpheme-level timing data."""
+"""Caption chunking from bunsetsu-level timing data."""
 
 from __future__ import annotations
 
@@ -78,8 +78,8 @@ def collect_captions(
     morpheme_times: List[Tuple[float, float, str]],
     keep_intervals: List[dict],
     max_duration: float = 4.0,
-    max_morphemes: int = 12,
-    min_morphemes: int = 3,
+    max_bunsetu: int = 12,
+    min_bunsetu: int = 3,
     min_duration: float = 1.5,
     silence_flush: float = 1.5,
     duration_sec: float = math.inf,
@@ -124,10 +124,10 @@ def collect_captions(
             crossed_keep_boundary = current_overlaps_keep != chunk_overlaps_keep
 
             size_limit_reached = (
-                speech_duration > max_duration or len(chunk) >= max_morphemes
+                speech_duration > max_duration or len(chunk) >= max_bunsetu
             )
             flush_allowed = (
-                len(chunk) >= min_morphemes and speech_duration >= min_duration
+                len(chunk) >= min_bunsetu and speech_duration >= min_duration
             )
             should_flush = (
                 (size_limit_reached and flush_allowed)

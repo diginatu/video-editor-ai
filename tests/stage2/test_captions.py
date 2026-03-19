@@ -17,8 +17,8 @@ def test_collect_captions_flush_and_preserve_silence_split_chunks():
         morphemes,
         keep_intervals,
         max_duration=4.0,
-        max_morphemes=12,
-        min_morphemes=1,
+        max_bunsetu=12,
+        min_bunsetu=1,
         min_duration=0.0,
         silence_flush=1.5,
     )
@@ -44,8 +44,8 @@ def test_collect_captions_splits_on_keep_boundary_without_silence():
         morphemes,
         keep_intervals,
         max_duration=10.0,
-        max_morphemes=12,
-        min_morphemes=1,
+        max_bunsetu=12,
+        min_bunsetu=1,
         min_duration=0.0,
         silence_flush=10.0,
     )

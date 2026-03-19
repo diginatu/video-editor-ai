@@ -8,10 +8,10 @@ import logging
 from pathlib import Path
 from typing import List, Tuple
 
-from fugashi import Tagger
+import spacy
 
+from video_editor_ai.stage2.bunsetu import build_bunsetu_times
 from video_editor_ai.stage2.captions import collect_captions
-from video_editor_ai.stage2.filler import load_filler_set, normalize_word
 from video_editor_ai.stage2.intervals import (
     apply_margins,
     enforce_min_keep_duration,
@@ -20,7 +20,6 @@ from video_editor_ai.stage2.intervals import (
     merge_intervals,
 )
 from video_editor_ai.stage2.io import infer_source_file
-from video_editor_ai.stage2.morpheme import build_morpheme_times
 from video_editor_ai.stage2.speech import build_speech_spans, get_duration_sec
 
 
@@ -30,15 +29,6 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--json", required=True, dest="json_path", help="WhisperX JSON path"
-    )
-    parser.add_argument(
-        "--config",
-        required=True,
-        dest="config_path",
-        help="Filler words YAML path",
-    )
-    parser.add_argument(
-        "--language", required=True, help="Language key in filler config"
     )
     parser.add_argument(
         "--silence_threshold",
@@ -65,10 +55,10 @@ def parse_args() -> argparse.Namespace:
         help="Seconds to extend each keep interval after its end (default: 1.0)",
     )
     parser.add_argument(
-        "--caption_max_morphemes",
+        "--caption_max_bunsetu",
         type=int,
         default=12,
-        help="Maximum morphemes per caption chunk (default: 12)",
+        help="Maximum bunsetsu units per caption chunk (default: 12)",
     )
     parser.add_argument(
         "--caption_max_duration",
@@ -77,10 +67,10 @@ def parse_args() -> argparse.Namespace:
         help="Maximum seconds per caption chunk (default: 4.0)",
     )
     parser.add_argument(
-        "--caption_min_morphemes",
+        "--caption_min_bunsetu",
         type=int,
         default=3,
-        help="Minimum morphemes before a chunk can be flushed (default: 3)",
+        help="Minimum bunsetsu units before a chunk can be flushed (default: 3)",
     )
     parser.add_argument(
         "--caption_min_duration",
@@ -103,12 +93,6 @@ def parse_args() -> argparse.Namespace:
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Logging verbosity (default: INFO)",
     )
-    parser.add_argument(
-        "--word_padding",
-        type=float,
-        default=0.1,
-        help="Padding seconds before/after excluded filler words",
-    )
     return parser.parse_args()
 
 
@@ -117,41 +101,26 @@ def main() -> None:
     logging.basicConfig(level=args.log_level, format="%(levelname)s: %(message)s")
 
     json_path = Path(args.json_path)
-    config_path = Path(args.config_path)
     output_path = Path(args.output_path)
 
     with json_path.open("r", encoding="utf-8") as f:
         whisperx_data = json.load(f)
 
-    filler_set = load_filler_set(config_path, args.language)
     logging.info(
         "Loaded %d segment(s) from %s",
         len(whisperx_data.get("segments", [])),
         json_path.name,
     )
 
-    tagger = Tagger("-Owakati")
-    all_morpheme_times = build_morpheme_times(whisperx_data, tagger)
+    nlp = spacy.load("ja_ginza")
+    all_bunsetu_times = build_bunsetu_times(whisperx_data, nlp)
 
-    words = all_morpheme_times
+    words = all_bunsetu_times
     speech_spans = build_speech_spans(whisperx_data)
     duration_sec = get_duration_sec(whisperx_data, words)
-    logging.info(
-        "Duration: %.1fs, morphemes: %d", duration_sec, len(all_morpheme_times)
-    )
+    logging.info("Duration: %.1fs, bunsetsu: %d", duration_sec, len(all_bunsetu_times))
 
     excludes: List[Tuple[float, float]] = []
-
-    filler_hits = 0
-    for start, end, token in words:
-        normalized = normalize_word(token)
-        if normalized in filler_set:
-            logging.debug("Filler hit: %r [%.3f-%.3f]", token, start, end)
-            excludes.append((start - args.word_padding, end + args.word_padding))
-            filler_hits += 1
-    logging.info(
-        "Filler words excluded: %d interval(s) from %d hit(s)", filler_hits, filler_hits
-    )
 
     silence_excludes = 0
     for idx in range(len(speech_spans) - 1):
@@ -214,11 +183,11 @@ def main() -> None:
     )
 
     captions = collect_captions(
-        all_morpheme_times,
+        all_bunsetu_times,
         keep_intervals_dicts,
         max_duration=args.caption_max_duration,
-        max_morphemes=args.caption_max_morphemes,
-        min_morphemes=args.caption_min_morphemes,
+        max_bunsetu=args.caption_max_bunsetu,
+        min_bunsetu=args.caption_min_bunsetu,
         min_duration=args.caption_min_duration,
         silence_flush=args.caption_silence_flush,
         duration_sec=duration_sec,

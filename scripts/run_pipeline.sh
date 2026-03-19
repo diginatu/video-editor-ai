@@ -67,7 +67,7 @@ if [[ ! -f "$SOURCE_PATH" ]]; then
   exit 1
 fi
 
-mkdir -p "$INPUT_VIDEOS_DIR" "$OUTPUT_DIR" cache config
+mkdir -p "$INPUT_VIDEOS_DIR" "$OUTPUT_DIR" cache
 
 ABS_INPUT_VIDEOS="$(realpath "$INPUT_VIDEOS_DIR")"
 ABS_SOURCE="$(realpath "$SOURCE_PATH")"
@@ -109,8 +109,6 @@ docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisp
 echo "[Stage 2/3] Keep interval computation"
 uv run --project "$PROJECT_ROOT" python -m video_editor_ai.cli \
   --json "$WHISPER_JSON" \
-  --config config/filler_words.yaml \
-  --language "$LANGUAGE" \
   --silence_threshold "$SILENCE_THRESHOLD" \
   --min_keep "$MIN_KEEP" \
   --pre_margin "$PRE_MARGIN" \
