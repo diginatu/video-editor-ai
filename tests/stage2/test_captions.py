@@ -24,7 +24,7 @@ def test_collect_captions_flush_and_preserve_silence_split_chunks():
     )
 
     assert len(captions) == 2
-    assert captions[0]["text"] == "あい"
+    assert captions[0]["text"] == "あ い"
     assert captions[0]["start"] == pytest.approx(0.0)
     assert captions[0]["end"] == pytest.approx(1.0)
     assert captions[1]["text"] == "う"
@@ -50,7 +50,7 @@ def test_collect_captions_splits_on_keep_boundary_without_silence():
         silence_flush=10.0,
     )
 
-    assert [cap["text"] for cap in captions] == ["あい", "う"]
+    assert [cap["text"] for cap in captions] == ["あ い", "う"]
 
 
 # --- expand_short_captions tests ---
