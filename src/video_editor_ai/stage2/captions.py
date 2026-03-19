@@ -83,6 +83,7 @@ def collect_captions(
     min_duration: float = 1.5,
     silence_flush: float = 1.5,
     duration_sec: float = math.inf,
+    bunsetu_separator: str = " ",
 ) -> List[dict]:
     keep_ranges = [
         (float(iv["start"]), float(iv["end"]))
@@ -106,7 +107,7 @@ def collect_captions(
     def flush_chunk() -> None:
         if not chunk:
             return
-        text = "".join(chunk)
+        text = bunsetu_separator.join(chunk)
         logging.debug("Caption chunk [%.3f-%.3f]: %r", chunk_start, chunk_end, text)
         captions.append(
             {

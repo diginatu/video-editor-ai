@@ -85,6 +85,12 @@ def parse_args() -> argparse.Namespace:
         help="Silence duration that forces flushing the current caption chunk (default: 1.5)",
     )
     parser.add_argument(
+        "--caption_bunsetu_separator",
+        type=str,
+        default=" ",
+        help="Separator inserted between bunsetsu units in caption text; use empty string to disable (default: ' ')",
+    )
+    parser.add_argument(
         "--output", required=True, dest="output_path", help="Output JSON path"
     )
     parser.add_argument(
@@ -191,6 +197,7 @@ def main() -> None:
         min_duration=args.caption_min_duration,
         silence_flush=args.caption_silence_flush,
         duration_sec=duration_sec,
+        bunsetu_separator=args.caption_bunsetu_separator,
     )
     logging.info("Captions: %d chunk(s)", len(captions))
 
