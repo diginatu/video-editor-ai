@@ -159,6 +159,10 @@ def build_morpheme_times(
 
         # Map each morpheme to (start, tentative_end, surface).
         # tentative_end = last_char_start + eps; will be clamped below.
+        # When consecutive characters within a morpheme have a gap
+        # exceeding _SILENCE_MAX_WORD_SPAN, WhisperX likely misaligned the
+        # earlier character.  In observed data the later cluster carries the
+        # true timing, so we shift m_start forward to that cluster.
         seg_morphemes: List[Tuple[float, float, str]] = []
         char_cursor = 0
         for morpheme in morphemes:
@@ -166,6 +170,10 @@ def build_morpheme_times(
             start_idx = min(char_cursor, len(char_starts) - 1)
             last_idx = min(char_cursor + m_len - 1, len(char_starts) - 1)
             m_start = char_starts[start_idx]
+            # Scan for large intra-morpheme gaps and snap to the later cluster.
+            for ci in range(start_idx, last_idx):
+                if char_starts[ci + 1] - char_starts[ci] > _SILENCE_MAX_WORD_SPAN:
+                    m_start = char_starts[ci + 1]
             m_end = char_starts[last_idx] + _CHAR_EPS
             seg_morphemes.append((m_start, m_end, morpheme))
             char_cursor += m_len

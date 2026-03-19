@@ -352,3 +352,59 @@ def test_apply_margins_real_intervals_merge_with_larger_padding():
 
     assert len(result) == 1
     assert result[0] == pytest.approx({"start": 3.903, "end": 109.502})
+
+
+# Regression: multi-char morpheme hiding silence gap
+
+
+def test_build_morpheme_times_multichar_morpheme_preserves_silence_gap():
+    """
+    Repro for real data: WhisperX char "あ" at 101.031 with inflated end 107.74,
+    followed by "と" at 107.74.  fugashi groups them into a single morpheme "あと".
+    build_morpheme_times must NOT produce a morpheme spanning (101.031, 107.76)
+    because the 6.7 s silence between the two characters would be hidden.
+
+    WhisperX misaligned the first char "あ" to 101.031; the real utterance of
+    "あと" is at ~107.74 (the "と" cluster).  The fix detects the large
+    intra-morpheme gap and snaps the morpheme start forward to the later
+    cluster, so the silence gap appears *before* "あと" instead of being
+    hidden inside it.
+    """
+    whisperx_data = {
+        "segments": [
+            {
+                "start": 100.0,
+                "end": 110.0,
+                "text": "ねあとは",
+                "words": [
+                    {"word": "ね", "start": 101.011, "end": 101.031, "score": 0.0},
+                    {"word": "あ", "start": 101.031, "end": 107.74, "score": 0.978},
+                    {"word": "と", "start": 107.74, "end": 107.84, "score": 0.601},
+                    {"word": "は", "start": 107.84, "end": 108.541, "score": 0.679},
+                ],
+            }
+        ]
+    }
+    # fugashi tokenizes "ねあとは" -> ["ね", "あと", "は"]
+    tagger = make_tagger([["ね", "あと", "は"]])
+    morphemes = s.build_morpheme_times(whisperx_data, tagger)
+
+    assert len(morphemes) == 3
+    ne, ato, ha = morphemes
+
+    assert ne[2] == "ね"
+    assert ato[2] == "あと"
+    assert ha[2] == "は"
+
+    # "あと" should snap forward to the later cluster ("と" at 107.74),
+    # because the gap between "あ" (101.031) and "と" (107.74) exceeds
+    # _SILENCE_MAX_WORD_SPAN and "あ" is the misaligned character.
+    assert ato[0] == pytest.approx(107.74, abs=1e-3)
+    assert ato[1] == pytest.approx(107.76, abs=1e-3)
+
+    # The silence gap should now appear between "ね" and "あと"
+    gap = ato[0] - ne[1]
+    assert gap > 1.5, (
+        f"gap between 'ね' and 'あと' is only {gap:.3f} s; "
+        f"silence is hidden inside the morpheme"
+    )
