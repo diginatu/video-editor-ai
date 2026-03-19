@@ -86,6 +86,12 @@ def parse_args() -> argparse.Namespace:
         "--output", required=True, dest="output_path", help="Output JSON path"
     )
     parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging verbosity (default: INFO)",
+    )
+    parser.add_argument(
         "--word_padding",
         type=float,
         default=0.1,
@@ -462,6 +468,7 @@ def enforce_min_keep_duration(
 
 def main() -> None:
     args = parse_args()
+    logging.basicConfig(level=args.log_level, format="%(levelname)s: %(message)s")
 
     json_path = Path(args.json_path)
     config_path = Path(args.config_path)
