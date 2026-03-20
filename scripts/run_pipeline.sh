@@ -187,11 +187,13 @@ if [[ -n "$ALIGN_MODEL" ]]; then
   ALIGN_MODEL_ARGS=("--align_model" "$ALIGN_MODEL")
 fi
 
-# --- Stage 1 & 2: loop over each source ---
+# --- Collect per-source metadata and stage any out-of-dir files ---
 ALL_SOURCE_PATHS=()
 ALL_INTERVALS=()
 CLEANUP_COPIES=()
 FIRST_STEM=""
+ALL_STEMS=()
+ALL_RELATIVES=()
 
 for SOURCE_PATH in "${SOURCE_PATHS[@]}"; do
   ABS_SOURCE="$(realpath "$SOURCE_PATH")"
@@ -208,29 +210,37 @@ for SOURCE_PATH in "${SOURCE_PATHS[@]}"; do
   STEM="${BASENAME%.*}"
   [[ -z "$FIRST_STEM" ]] && FIRST_STEM="$STEM"
 
+  ALL_SOURCE_PATHS+=("$ABS_SOURCE")
+  ALL_STEMS+=("$STEM")
+  ALL_RELATIVES+=("$SOURCE_RELATIVE")
+done
+
+# --- Stage 1: WhisperX transcription (single container run for all sources) ---
+echo "[Stage 1/3] WhisperX transcription: ${ALL_RELATIVES[*]}"
+INPUT_VIDEOS_DIR="$ABS_INPUT_VIDEOS" OUTPUT_DIR="$ABS_OUTPUT_DIR" \
+docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisperx \
+  _ \
+  "${ALL_RELATIVES[@]}" \
+  --output_dir /output \
+  --output_format json,txt \
+  --language "$LANGUAGE" \
+  --compute_type "$COMPUTE_TYPE" \
+  --batch_size "$BATCH_SIZE" \
+  "${ALIGN_MODEL_ARGS[@]}"
+
+# --- Stage 2: Keep interval computation (per source) ---
+for i in "${!ALL_STEMS[@]}"; do
+  STEM="${ALL_STEMS[$i]}"
   WHISPER_JSON="${OUTPUT_DIR}/${STEM}.json"
   INTERVALS_JSON="${OUTPUT_DIR}/${STEM}_intervals.json"
 
-  echo "[Stage 1/3] WhisperX transcription: $BASENAME"
-  INPUT_VIDEOS_DIR="$ABS_INPUT_VIDEOS" OUTPUT_DIR="$ABS_OUTPUT_DIR" \
-  docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisperx \
-    _ \
-    "$SOURCE_RELATIVE" \
-    --output_dir /output \
-    --output_format all \
-    --language "$LANGUAGE" \
-    --compute_type "$COMPUTE_TYPE" \
-    --batch_size "$BATCH_SIZE" \
-    "${ALIGN_MODEL_ARGS[@]}"
-
-  echo "[Stage 2/3] Keep interval computation: $BASENAME"
+  echo "[Stage 2/3] Keep interval computation: ${ALL_STEMS[$i]}"
   uv run --project "$PROJECT_ROOT" python -m nagare_clip.cli \
     --json "$WHISPER_JSON" \
     "${CONFIG_ARGS[@]}" \
     "${STAGE2_OVERRIDE_ARGS[@]}" \
     --output "$INTERVALS_JSON"
 
-  ALL_SOURCE_PATHS+=("$ABS_SOURCE")
   ALL_INTERVALS+=("$(realpath "$INTERVALS_JSON")")
 done
 

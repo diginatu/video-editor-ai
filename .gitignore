@@ -209,3 +209,4 @@ __marimo__/
 # Pipeline artifacts
 output/
 src_video/
+cache/
