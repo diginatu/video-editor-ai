@@ -16,7 +16,7 @@ usage() {
   echo "  --output-dir        DIR   Root output directory; stage outputs go to stage1/, stage2/, stage3/ subdirs (default: output)"
   echo "  --pre-margin        SEC   Seconds to extend keep intervals before start (default: 1.0)"
   echo "  --post-margin       SEC   Seconds to extend keep intervals after end (default: 1.0)"
-  echo "  --from-stage        N     Start from stage N (1, 2, or 3); reuses earlier stage outputs"
+  echo "  --from-stage        N     Start from stage N (1, 1.5, 2, or 3); reuses earlier stage outputs"
   echo "  --align-model       MODEL HuggingFace model ID for WhisperX alignment"
   echo "                            Japanese default: vumichien/wav2vec2-large-xlsr-japanese"
   echo "                            English default: (whisperx built-in)"
@@ -78,6 +78,7 @@ CFG_MIN_KEEP=""
 CFG_FROM_STAGE=""
 CFG_COMPUTE_TYPE=""
 CFG_BATCH_SIZE=""
+CFG_STAGE1_5_ENABLED=""
 
 if [[ -n "$CONFIG_FILE" ]]; then
   if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -89,6 +90,7 @@ import yaml, sys, shlex
 with open(sys.argv[1]) as f:
     c = yaml.safe_load(f) or {}
 s1 = c.get('stage1', {})
+s15 = c.get('stage1_5', {})
 s2 = c.get('stage2', {})
 p  = c.get('pipeline', {})
 def out(name, val):
@@ -101,6 +103,7 @@ out('CFG_SILENCE_THRESHOLD', s2.get('silence_threshold'))
 out('CFG_MIN_KEEP', s2.get('min_keep'))
 out('CFG_PRE_MARGIN', s2.get('pre_margin'))
 out('CFG_POST_MARGIN', s2.get('post_margin'))
+out('CFG_STAGE1_5_ENABLED', str(bool(s15.get('enabled', False))).lower())
 out('CFG_INPUT_VIDEOS_DIR', p.get('input_videos_dir'))
 out('CFG_OUTPUT_DIR', p.get('output_dir'))
 out('CFG_FROM_STAGE', p.get('from_stage'))
@@ -119,8 +122,8 @@ COMPUTE_TYPE="${CFG_COMPUTE_TYPE:-float16}"
 BATCH_SIZE="${CFG_BATCH_SIZE:-16}"
 FROM_STAGE="${CLI_FROM_STAGE:-${CFG_FROM_STAGE:-1}}"
 
-if [[ "$FROM_STAGE" != "1" && "$FROM_STAGE" != "2" && "$FROM_STAGE" != "3" ]]; then
-  echo "Invalid --from-stage value: $FROM_STAGE (must be 1, 2, or 3)" >&2
+if [[ "$FROM_STAGE" != "1" && "$FROM_STAGE" != "1.5" && "$FROM_STAGE" != "2" && "$FROM_STAGE" != "3" ]]; then
+  echo "Invalid --from-stage value: $FROM_STAGE (must be 1, 1.5, 2, or 3)" >&2
   exit 1
 fi
 
@@ -231,7 +234,7 @@ for SOURCE_PATH in "${SOURCE_PATHS[@]}"; do
 done
 
 # --- Stage 1: WhisperX transcription (single container run for all sources) ---
-if [ "$FROM_STAGE" -le 1 ]; then
+if [ "$FROM_STAGE" = "1" ]; then
   echo "[Stage 1/3] WhisperX transcription: ${ALL_RELATIVES[*]}"
   INPUT_VIDEOS_DIR="$ABS_INPUT_VIDEOS" OUTPUT_DIR="$ABS_OUTPUT_DIR" \
   docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisperx \
@@ -251,14 +254,43 @@ else
       echo "Missing Stage 1 output: ${STAGE1_DIR}/${STEM}.json (required when skipping Stage 1)" >&2
       exit 1
     fi
+    if [[ "$FROM_STAGE" = "1.5" && ! -f "${STAGE1_DIR}/${STEM}.txt" ]]; then
+      echo "Missing Stage 1 output: ${STAGE1_DIR}/${STEM}.txt (required for Stage 1.5)" >&2
+      exit 1
+    fi
   done
 fi
 
-# --- Stage 2: Keep interval computation (per source) ---
-if [ "$FROM_STAGE" -le 2 ]; then
+# --- Stage 1.5: LLM text filter (per source, optional) ---
+STAGE1_5_ENABLED="${CFG_STAGE1_5_ENABLED:-false}"
+
+if [[ "$FROM_STAGE" = "1" || "$FROM_STAGE" = "1.5" ]] && [ "$STAGE1_5_ENABLED" = "true" ]; then
   for i in "${!ALL_STEMS[@]}"; do
     STEM="${ALL_STEMS[$i]}"
-    WHISPER_JSON="${STAGE1_DIR}/${STEM}.json"
+    echo "[Stage 1.5/3] LLM text filter: ${STEM}"
+    uv run --project "$PROJECT_ROOT" python -m nagare_clip.stage1_5.cli \
+      --txt "${STAGE1_DIR}/${STEM}.txt" \
+      --json "${STAGE1_DIR}/${STEM}.json" \
+      --output-txt "${STAGE1_DIR}/${STEM}_filtered.txt" \
+      --output-json "${STAGE1_DIR}/${STEM}_filtered.json" \
+      "${CONFIG_ARGS[@]}"
+  done
+elif [[ "$FROM_STAGE" = "1" || "$FROM_STAGE" = "1.5" ]]; then
+  echo "[Stage 1.5/3] Skipped (disabled)"
+else
+  echo "[Stage 1.5/3] Skipped (--from-stage $FROM_STAGE)"
+fi
+
+# --- Stage 2: Keep interval computation (per source) ---
+if [[ "$FROM_STAGE" = "1" || "$FROM_STAGE" = "1.5" || "$FROM_STAGE" = "2" ]]; then
+  for i in "${!ALL_STEMS[@]}"; do
+    STEM="${ALL_STEMS[$i]}"
+    # Use filtered JSON if stage 1.5 produced it, otherwise original
+    if [ "$STAGE1_5_ENABLED" = "true" ] && [ -f "${STAGE1_DIR}/${STEM}_filtered.json" ]; then
+      WHISPER_JSON="${STAGE1_DIR}/${STEM}_filtered.json"
+    else
+      WHISPER_JSON="${STAGE1_DIR}/${STEM}.json"
+    fi
     INTERVALS_JSON="${STAGE2_DIR}/${STEM}_intervals.json"
 
     echo "[Stage 2/3] Keep interval computation: ${ALL_STEMS[$i]}"

@@ -18,6 +18,36 @@ DEFAULTS: Dict[str, Any] = {
         "batch_size": 16,
         "align_model": "",
     },
+    "stage1_5": {
+        "enabled": False,
+        "api_base": "http://localhost:11434/v1",
+        "model": "gemma3:12b",
+        "api_key": "",
+        "batch_size": 10,
+        "timeout": 60,
+        "prompt": (
+            "Fix speech recognition errors in Japanese text.\n"
+            "Remove filler words (あのー, えーと) and noise like (雑音).\n"
+            "Only fix clear mistakes. Do NOT rephrase correct text.\n"
+            "\n"
+            "Rules:\n"
+            "- Copy each line fully with its number.\n"
+            "- Wrap ONLY the erroneous part: {{error->fix}} or {{delete->}}.\n"
+            "- Keep all surrounding text unchanged.\n"
+            "\n"
+            "Example:\n"
+            "Input:\n"
+            "1: えーとそれは急はいい天気ですね\n"
+            "2: 正しい文です\n"
+            "3: (雑音)\n"
+            "\n"
+            "Output:\n"
+            "1: {{えーと->}}それは{{急は->今日は}}いい天気ですね\n"
+            "2: 正しい文です\n"
+            "3: {{(雑音)->}}"
+        ),
+        "temperature": 0.1,
+    },
     "stage2": {
         "silence_threshold": 1.5,
         "min_keep": 1.0,

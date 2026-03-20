@@ -11,6 +11,16 @@ stage1:
   batch_size: 16
   # align_model: vumichien/wav2vec2-large-xlsr-japanese
 
+stage1_5:
+  enabled: false               # Enable LLM text filter between Stage 1 and Stage 2
+  api_base: "http://localhost:11434/v1"  # OpenAI-compatible API base URL (Ollama default)
+  model: "gemma3:12b"           # Model name for chat completions
+  api_key: ""                  # API key (empty = no auth, for local Ollama)
+  batch_size: 10               # Number of transcript segments per LLM call
+  timeout: 60                  # API request timeout in seconds
+  # prompt: "..."              # System prompt for LLM (has sensible default for Japanese)
+  temperature: 0.1             # LLM sampling temperature
+
 stage2:
   silence_threshold: 1.5     # Silence gap threshold in seconds
   min_keep: 1.0              # Minimum keep interval length in seconds

@@ -4,9 +4,10 @@ Agent guidance for this repository.
 
 ## Objective
 
-Maintain and improve a 3-stage rough-cut pipeline:
+Maintain and improve a multi-stage rough-cut pipeline:
 
 1. WhisperX transcription in Docker
+1.5. (Optional) LLM text filter — corrects transcription errors
 2. Keep-interval computation in Python
 3. Blender VSE auto-layout in headless mode
 
@@ -27,6 +28,10 @@ src/nagare_clip/          # Main Python package (src layout)
   config.py                   # Centralised config loading/merging (DEFAULTS dict)
   cli.py                      # Stage 2 CLI entry point
   __main__.py                 # python -m nagare_clip support
+  stage1_5/                   # Stage 1.5 modules (LLM text filter)
+    llm_filter.py             # LLM API calls and {{old->new}} patch parsing
+    sync_json.py              # Sync corrected text back into WhisperX JSON
+    cli.py                    # Stage 1.5 CLI entry point
   stage2/                     # Stage 2 modules
     bunsetu.py                # Bunsetsu-level timing (GiNZA)
     speech.py                 # Speech span extraction
@@ -42,6 +47,7 @@ scripts/
   run_pipeline.sh             # Main orchestrator
 tests/
   test_config.py              # Config module unit tests
+  stage1_5/                   # Stage 1.5 unit tests
   stage2/                     # Stage 2 unit tests
   stage3/                     # Stage 3 tests (future)
 ```
@@ -62,6 +68,7 @@ Both `cli.py` (Stage 2) and `blender_cli.py` (Stage 3) accept a `--config <path>
 
 ## Current Runtime Quirks
 
+- Stage 1.5 is an optional LLM text filter that corrects WhisperX transcription errors. It uses `{{old->new}}` inline patch syntax in `.txt` files, then syncs corrections back into the `.json` timing data. Enabled via `stage1_5.enabled: true` in config. Uses OpenAI-compatible chat completions API (default: Ollama at `localhost:11434`). Falls back to original text on any LLM or parse failure.
 - Stage 2 keep intervals are expanded by configurable pre/post margins (defaults 1.0s) and merged before Blender export.
 - Stage 2 silence-based keep-interval detection uses WhisperX word timings (`word.start`/`word.end`) with a 0.6s per-word span cap so inflated token ends do not hide pauses. The cap is controlled by `stage2.bunsetu.silence_max_word_span` in the config.
 - Stage 2 bunsetsu timing (`build_bunsetu_times` in `src/nagare_clip/stage2/bunsetu.py`) uses `ginza.bunsetu_spans(doc)` so particles and auxiliaries attach to the preceding content word, producing natural subtitle line-break units. It detects large intra-bunsetsu character gaps (> 0.6s) caused by WhisperX misalignment and snaps the bunsetsu start forward to the later character cluster so the silence gap is not hidden inside a single bunsetsu. The gap threshold is `stage2.bunsetu.silence_max_word_span`; the end-offset epsilon is `stage2.bunsetu.char_eps`.
@@ -72,7 +79,7 @@ Both `cli.py` (Stage 2) and `blender_cli.py` (Stage 3) accept a `--config <path>
 - Stage 3 fallback FPS (used when source metadata is unavailable) is controlled by `stage3.default_fps`.
 - Stage 3 supports multiple source files: `blender_cli.py` accepts repeated `--source`/`--intervals` flags; `place_strips()` and `build_timeline_map()` accept `start_cursor` and `idx_offset` to concatenate sources on a single timeline.
 - `run_pipeline.sh` discovers all video files (`mp4`, `mkv`, `mov`, `avi`, `webm`) in `INPUT_VIDEOS_DIR` alphabetically when `--source` is not provided. Multiple `--source` flags are also accepted.
-- `run_pipeline.sh` accepts `--from-stage N` (1, 2, or 3) to skip expensive earlier stages and reuse their outputs. Also configurable via `pipeline.from_stage` in YAML config. When skipping stages, the script validates that required intermediate outputs exist.
+- `run_pipeline.sh` accepts `--from-stage N` (1, 1.5, 2, or 3) to skip expensive earlier stages and reuse their outputs. Also configurable via `pipeline.from_stage` in YAML config. When skipping stages, the script validates that required intermediate outputs exist.
 - Stage 1 (WhisperX) runs in a **single container** for all source files, passing all relative paths as positional arguments. This avoids model reload overhead between videos. Stage 2 still loops per-source after the single Stage 1 completes.
 
 ## Python Execution

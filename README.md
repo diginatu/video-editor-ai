@@ -7,6 +7,7 @@ The pipeline creates a rough-cut Blender project for human review and fine-tunin
 ## Pipeline Stages
 
 1. Stage 1: WhisperX in Docker -> transcript outputs (`json`, `srt`, `vtt`, etc.)
+1.5. Stage 1.5 (optional): LLM text filter -> corrected `_filtered.json` / `_filtered.txt`
 2. Stage 2: Python interval logic -> `*_intervals.json` keep ranges
 3. Stage 3: Blender headless -> `.blend` with VSE strips arranged back-to-back
 
@@ -100,7 +101,20 @@ Parameters resolve in this priority order (highest wins):
 2. Config file values
 3. Built-in defaults
 
-The config file covers all sections (`general`, `stage1`, `stage2`, `stage3`, `pipeline`). See `config.example.yml` for the full list of keys and their defaults.
+The config file covers all sections (`general`, `stage1`, `stage1_5`, `stage2`, `stage3`, `pipeline`). See `config.example.yml` for the full list of keys and their defaults.
+
+### Stage 1.5: LLM Text Filter (optional)
+
+Enable LLM-based transcription correction by setting `stage1_5.enabled: true` in your config file. This uses an OpenAI-compatible API (default: Ollama at `localhost:11434`) to fix common speech recognition errors.
+
+```yaml
+stage1_5:
+  enabled: true
+  api_base: "http://localhost:11434/v1"
+  model: "gemma3:4b"
+```
+
+The LLM uses `{{old->new}}` inline patch syntax to mark corrections, with automatic fallback to the original text on any failure. Stage 1.5 runs between Stage 1 and Stage 2. Use `--from-stage 1.5` to skip Stage 1 and re-run Stage 1.5 with existing WhisperX output.
 
 ## CLI
 
@@ -111,7 +125,7 @@ The config file covers all sections (`general`, `stage1`, `stage2`, `stage3`, `p
 Options:
 - `--source FILE` — source video file (may be repeated for multiple sources); when omitted, all videos in `--input-videos-dir` are processed alphabetically.
 - `--config FILE` — path to a YAML config file; config values fill in between CLI overrides and built-in defaults.
-- `--from-stage N` — start from stage N (1, 2, or 3); reuses earlier stage outputs. Also settable via `pipeline.from_stage` in config.
+- `--from-stage N` — start from stage N (1, 1.5, 2, or 3); reuses earlier stage outputs. Also settable via `pipeline.from_stage` in config.
 - Defaults: input videos under `src_video/`, outputs under `output/`.
 - If `--source` contains `/`, it is treated as the exact path; otherwise it is resolved inside `--input-videos-dir`.
 - `silence_threshold` and `min_keep` default to `1.5` and `1.0` (overridable via config).
