@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import patch
 
-from video_editor_ai.stage2.bunsetu import build_bunsetu_times, flatten_bunsetu
+from nagare_clip.stage2.bunsetu import build_bunsetu_times, flatten_bunsetu
 
 from tests.stage2.conftest import make_nlp
 

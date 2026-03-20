@@ -194,14 +194,14 @@ docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisp
   "${ALIGN_MODEL_ARGS[@]}"
 
 echo "[Stage 2/3] Keep interval computation"
-uv run --project "$PROJECT_ROOT" python -m video_editor_ai.cli \
+uv run --project "$PROJECT_ROOT" python -m nagare_clip.cli \
   --json "$WHISPER_JSON" \
   "${CONFIG_ARGS[@]}" \
   "${STAGE2_OVERRIDE_ARGS[@]}" \
   --output "$INTERVALS_JSON"
 
 echo "[Stage 3/3] Blender VSE project generation"
-blender --background --factory-startup --python-exit-code 1 --python "$PROJECT_ROOT/src/video_editor_ai/stage3/blender_cli.py" -- \
+blender --background --factory-startup --python-exit-code 1 --python "$PROJECT_ROOT/src/nagare_clip/stage3/blender_cli.py" -- \
   --source "$SOURCE_PATH" \
   --intervals "$INTERVALS_JSON" \
   --output "$BLEND_OUTPUT" \

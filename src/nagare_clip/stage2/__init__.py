@@ -1,21 +1,21 @@
 """Stage 2: Keep-interval computation from WhisperX transcripts."""
 
-from video_editor_ai.stage2.bunsetu import (
+from nagare_clip.stage2.bunsetu import (
     CHAR_EPS,
     SILENCE_MAX_WORD_SPAN,
     build_bunsetu_times,
     flatten_bunsetu,
 )
-from video_editor_ai.stage2.captions import collect_captions
-from video_editor_ai.stage2.intervals import (
+from nagare_clip.stage2.captions import collect_captions
+from nagare_clip.stage2.intervals import (
     apply_margins,
     enforce_min_keep_duration,
     ensure_keep_covers_captions,
     invert_intervals,
     merge_intervals,
 )
-from video_editor_ai.stage2.io import infer_source_file
-from video_editor_ai.stage2.speech import build_speech_spans, get_duration_sec
+from nagare_clip.stage2.io import infer_source_file
+from nagare_clip.stage2.speech import build_speech_spans, get_duration_sec
 
 __all__ = [
     "CHAR_EPS",

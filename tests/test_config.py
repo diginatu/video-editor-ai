@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from video_editor_ai.config import DEFAULTS, deep_merge, get_effective_config, load_config
+from nagare_clip.config import DEFAULTS, deep_merge, get_effective_config, load_config
 
 
 class TestLoadConfig:

@@ -10,16 +10,16 @@ from pathlib import Path
 
 # Blender runs this file in its own Python environment where the project
 # package is not installed.  Insert the src/ directory so that
-# ``video_editor_ai`` is importable regardless.
+# ``nagare_clip`` is importable regardless.
 _SRC = Path(__file__).resolve().parent.parent.parent
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 import bpy
 
-from video_editor_ai.config import get_effective_config
-from video_editor_ai.stage3.scene import load_source_metadata, reset_scene
-from video_editor_ai.stage3.timeline import (
+from nagare_clip.config import get_effective_config
+from nagare_clip.stage3.scene import load_source_metadata, reset_scene
+from nagare_clip.stage3.timeline import (
     build_timeline_map,
     place_captions,
     place_strips,

@@ -1,4 +1,4 @@
-# Example configuration for video-editor-ai pipeline.
+# Example configuration for nagare-clip pipeline.
 # Copy to your project and pass via --config flag.
 # All values shown are the defaults; remove or comment out
 # any you don't want to change.

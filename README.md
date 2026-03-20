@@ -1,4 +1,4 @@
-# video-editor-ai
+# nagare-clip
 
 Semi-automated video editing pipeline for long-form recordings on Linux.
 
@@ -124,7 +124,7 @@ Notes:
 ### Stage 2 only (interval generation)
 
 ```bash
-uv run python -m video_editor_ai.cli \
+uv run python -m nagare_clip.cli \
   --json output/myvideo.json \
   --config my_project.yml \
   --output output/myvideo_intervals.json
@@ -133,7 +133,7 @@ uv run python -m video_editor_ai.cli \
 CLI flags override config file values:
 
 ```bash
-uv run python -m video_editor_ai.cli \
+uv run python -m nagare_clip.cli \
   --json output/myvideo.json \
   --silence_threshold 1.5 \
   --min_keep 1.0 \
@@ -152,7 +152,7 @@ Keep-interval silence detection uses WhisperX word timings (`word.start`/`word.e
 ### Stage 3 only (Blender VSE project)
 
 ```bash
-blender --background --factory-startup --python-exit-code 1 --python src/video_editor_ai/stage3/blender_cli.py -- \
+blender --background --factory-startup --python-exit-code 1 --python src/nagare_clip/stage3/blender_cli.py -- \
   --source src_video/myvideo.mp4 \
   --intervals output/myvideo_intervals.json \
   --output output/myvideo_edited.blend \

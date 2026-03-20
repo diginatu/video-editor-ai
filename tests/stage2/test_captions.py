@@ -2,7 +2,7 @@
 
 import pytest
 
-from video_editor_ai.stage2.captions import collect_captions, expand_short_captions
+from nagare_clip.stage2.captions import collect_captions, expand_short_captions
 
 
 def test_collect_captions_flush_and_preserve_silence_split_chunks():
