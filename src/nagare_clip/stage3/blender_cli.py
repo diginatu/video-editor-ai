@@ -109,8 +109,6 @@ def main() -> None:
     # Loop over (source, intervals) pairs, accumulating timeline position
     timeline_cursor = 1
     idx_offset = 0
-    all_tl_maps = []
-    all_captions = []
 
     for src_num, (source_path, intervals_data) in enumerate(
         zip(sources, all_intervals_data), start=1
@@ -124,8 +122,6 @@ def main() -> None:
         tl_map = build_timeline_map(
             keep_intervals, effective_fps, first_fps, start_cursor=timeline_cursor
         )
-        all_tl_maps.extend(tl_map)
-        all_captions.extend(captions)
 
         timeline_cursor = place_strips(
             keep_intervals,
@@ -138,21 +134,24 @@ def main() -> None:
         )
         idx_offset += len(keep_intervals)
 
+        # Place captions per-source so each source's captions are matched
+        # only against that source's timeline map (source-relative timestamps
+        # would incorrectly match other sources' map entries).
+        if captions:
+            place_captions(
+                captions,
+                tl_map,
+                effective_fps,
+                sequence_collection,
+                caption_style=cfg["stage3"]["caption_style"],
+            )
+
     for s in sequence_collection:
         s.select = False
 
     min_strip_frame = min((s.frame_start for s in sequence_collection), default=1)
     scene.frame_start = int(min(1, min_strip_frame))
     scene.frame_end = max(scene.frame_start, timeline_cursor - 1)
-
-    if all_captions:
-        place_captions(
-            all_captions,
-            all_tl_maps,
-            effective_fps,
-            sequence_collection,
-            caption_style=cfg["stage3"]["caption_style"],
-        )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
