@@ -72,6 +72,7 @@ Both `cli.py` (Stage 2) and `blender_cli.py` (Stage 3) accept a `--config <path>
 - Stage 3 fallback FPS (used when source metadata is unavailable) is controlled by `stage3.default_fps`.
 - Stage 3 supports multiple source files: `blender_cli.py` accepts repeated `--source`/`--intervals` flags; `place_strips()` and `build_timeline_map()` accept `start_cursor` and `idx_offset` to concatenate sources on a single timeline.
 - `run_pipeline.sh` discovers all video files (`mp4`, `mkv`, `mov`, `avi`, `webm`) in `INPUT_VIDEOS_DIR` alphabetically when `--source` is not provided. Multiple `--source` flags are also accepted.
+- `run_pipeline.sh` accepts `--from-stage N` (1, 2, or 3) to skip expensive earlier stages and reuse their outputs. Also configurable via `pipeline.from_stage` in YAML config. When skipping stages, the script validates that required intermediate outputs exist.
 - Stage 1 (WhisperX) runs in a **single container** for all source files, passing all relative paths as positional arguments. This avoids model reload overhead between videos. Stage 2 still loops per-source after the single Stage 1 completes.
 
 ## Python Execution

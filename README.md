@@ -60,6 +60,16 @@ Use a YAML config file to tune pipeline parameters (see `config.example.yml`):
 ./scripts/run_pipeline.sh --config my_project.yml ja
 ```
 
+Re-run from a specific stage (skip expensive earlier stages when iterating on config):
+
+```bash
+# Skip Stage 1, reuse existing WhisperX output, re-run Stage 2 + 3
+./scripts/run_pipeline.sh --from-stage 2 --source myvideo.mp4 ja
+
+# Skip Stage 1 and 2, only regenerate the Blender project
+./scripts/run_pipeline.sh --from-stage 3 --source myvideo.mp4 ja
+```
+
 Override the alignment model (e.g. to revert to the WhisperX built-in default for Japanese):
 
 ```bash
@@ -101,6 +111,7 @@ The config file covers all sections (`general`, `stage1`, `stage2`, `stage3`, `p
 Options:
 - `--source FILE` — source video file (may be repeated for multiple sources); when omitted, all videos in `--input-videos-dir` are processed alphabetically.
 - `--config FILE` — path to a YAML config file; config values fill in between CLI overrides and built-in defaults.
+- `--from-stage N` — start from stage N (1, 2, or 3); reuses earlier stage outputs. Also settable via `pipeline.from_stage` in config.
 - Defaults: input videos under `src_video/`, outputs under `output/`.
 - If `--source` contains `/`, it is treated as the exact path; otherwise it is resolved inside `--input-videos-dir`.
 - `silence_threshold` and `min_keep` default to `1.5` and `1.0` (overridable via config).

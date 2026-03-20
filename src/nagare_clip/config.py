@@ -50,6 +50,7 @@ DEFAULTS: Dict[str, Any] = {
     "pipeline": {
         "input_videos_dir": "src_video",
         "output_dir": "output",
+        "from_stage": 1,
     },
 }
 

@@ -16,6 +16,7 @@ usage() {
   echo "  --output-dir        DIR   Root output directory; stage outputs go to stage1/, stage2/, stage3/ subdirs (default: output)"
   echo "  --pre-margin        SEC   Seconds to extend keep intervals before start (default: 1.0)"
   echo "  --post-margin       SEC   Seconds to extend keep intervals after end (default: 1.0)"
+  echo "  --from-stage        N     Start from stage N (1, 2, or 3); reuses earlier stage outputs"
   echo "  --align-model       MODEL HuggingFace model ID for WhisperX alignment"
   echo "                            Japanese default: vumichien/wav2vec2-large-xlsr-japanese"
   echo "                            English default: (whisperx built-in)"
@@ -39,12 +40,14 @@ CLI_POST_MARGIN=""
 CLI_ALIGN_MODEL=""
 CLI_SILENCE_THRESHOLD=""
 CLI_MIN_KEEP=""
+CLI_FROM_STAGE=""
 CLI_SOURCES=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --source) CLI_SOURCES+=("$2"); shift 2 ;;
     --config) CONFIG_FILE="$2"; shift 2 ;;
+    --from-stage) CLI_FROM_STAGE="$2"; shift 2 ;;
     --input-videos-dir) CLI_INPUT_VIDEOS_DIR="$2"; shift 2 ;;
     --output-dir) CLI_OUTPUT_DIR="$2"; shift 2 ;;
     --pre-margin) CLI_PRE_MARGIN="$2"; shift 2 ;;
@@ -72,6 +75,7 @@ CFG_POST_MARGIN=""
 CFG_ALIGN_MODEL=""
 CFG_SILENCE_THRESHOLD=""
 CFG_MIN_KEEP=""
+CFG_FROM_STAGE=""
 CFG_COMPUTE_TYPE=""
 CFG_BATCH_SIZE=""
 
@@ -99,6 +103,7 @@ out('CFG_PRE_MARGIN', s2.get('pre_margin'))
 out('CFG_POST_MARGIN', s2.get('post_margin'))
 out('CFG_INPUT_VIDEOS_DIR', p.get('input_videos_dir'))
 out('CFG_OUTPUT_DIR', p.get('output_dir'))
+out('CFG_FROM_STAGE', p.get('from_stage'))
 " "$CONFIG_FILE")"
 fi
 
@@ -112,6 +117,12 @@ SILENCE_THRESHOLD="${CLI_SILENCE_THRESHOLD:-${CFG_SILENCE_THRESHOLD:-1.5}}"
 MIN_KEEP="${CLI_MIN_KEEP:-${CFG_MIN_KEEP:-1.0}}"
 COMPUTE_TYPE="${CFG_COMPUTE_TYPE:-float16}"
 BATCH_SIZE="${CFG_BATCH_SIZE:-16}"
+FROM_STAGE="${CLI_FROM_STAGE:-${CFG_FROM_STAGE:-1}}"
+
+if [[ "$FROM_STAGE" != "1" && "$FROM_STAGE" != "2" && "$FROM_STAGE" != "3" ]]; then
+  echo "Invalid --from-stage value: $FROM_STAGE (must be 1, 2, or 3)" >&2
+  exit 1
+fi
 
 # Set default alignment model per language if not specified
 if [[ -z "$ALIGN_MODEL" ]]; then
@@ -220,33 +231,57 @@ for SOURCE_PATH in "${SOURCE_PATHS[@]}"; do
 done
 
 # --- Stage 1: WhisperX transcription (single container run for all sources) ---
-echo "[Stage 1/3] WhisperX transcription: ${ALL_RELATIVES[*]}"
-INPUT_VIDEOS_DIR="$ABS_INPUT_VIDEOS" OUTPUT_DIR="$ABS_OUTPUT_DIR" \
-docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisperx \
-  _ \
-  "${ALL_RELATIVES[@]}" \
-  --output_dir /output/stage1 \
-  --output_format all \
-  --language "$LANGUAGE" \
-  --compute_type "$COMPUTE_TYPE" \
-  --batch_size "$BATCH_SIZE" \
-  "${ALIGN_MODEL_ARGS[@]}"
+if [ "$FROM_STAGE" -le 1 ]; then
+  echo "[Stage 1/3] WhisperX transcription: ${ALL_RELATIVES[*]}"
+  INPUT_VIDEOS_DIR="$ABS_INPUT_VIDEOS" OUTPUT_DIR="$ABS_OUTPUT_DIR" \
+  docker compose -f "$PROJECT_ROOT/docker-compose.yml" run --rm --user "0:0" whisperx \
+    _ \
+    "${ALL_RELATIVES[@]}" \
+    --output_dir /output/stage1 \
+    --output_format all \
+    --language "$LANGUAGE" \
+    --compute_type "$COMPUTE_TYPE" \
+    --batch_size "$BATCH_SIZE" \
+    "${ALIGN_MODEL_ARGS[@]}"
+else
+  echo "[Stage 1/3] Skipped (--from-stage $FROM_STAGE)"
+  # Validate that Stage 1 outputs exist for all sources
+  for STEM in "${ALL_STEMS[@]}"; do
+    if [[ ! -f "${STAGE1_DIR}/${STEM}.json" ]]; then
+      echo "Missing Stage 1 output: ${STAGE1_DIR}/${STEM}.json (required when skipping Stage 1)" >&2
+      exit 1
+    fi
+  done
+fi
 
 # --- Stage 2: Keep interval computation (per source) ---
-for i in "${!ALL_STEMS[@]}"; do
-  STEM="${ALL_STEMS[$i]}"
-  WHISPER_JSON="${STAGE1_DIR}/${STEM}.json"
-  INTERVALS_JSON="${STAGE2_DIR}/${STEM}_intervals.json"
+if [ "$FROM_STAGE" -le 2 ]; then
+  for i in "${!ALL_STEMS[@]}"; do
+    STEM="${ALL_STEMS[$i]}"
+    WHISPER_JSON="${STAGE1_DIR}/${STEM}.json"
+    INTERVALS_JSON="${STAGE2_DIR}/${STEM}_intervals.json"
 
-  echo "[Stage 2/3] Keep interval computation: ${ALL_STEMS[$i]}"
-  uv run --project "$PROJECT_ROOT" python -m nagare_clip.cli \
-    --json "$WHISPER_JSON" \
-    "${CONFIG_ARGS[@]}" \
-    "${STAGE2_OVERRIDE_ARGS[@]}" \
-    --output "$INTERVALS_JSON"
+    echo "[Stage 2/3] Keep interval computation: ${ALL_STEMS[$i]}"
+    uv run --project "$PROJECT_ROOT" python -m nagare_clip.cli \
+      --json "$WHISPER_JSON" \
+      "${CONFIG_ARGS[@]}" \
+      "${STAGE2_OVERRIDE_ARGS[@]}" \
+      --output "$INTERVALS_JSON"
 
-  ALL_INTERVALS+=("$(realpath "$INTERVALS_JSON")")
-done
+    ALL_INTERVALS+=("$(realpath "$INTERVALS_JSON")")
+  done
+else
+  echo "[Stage 2/3] Skipped (--from-stage $FROM_STAGE)"
+  # Validate that Stage 2 outputs exist and collect interval paths
+  for STEM in "${ALL_STEMS[@]}"; do
+    INTERVALS_JSON="${STAGE2_DIR}/${STEM}_intervals.json"
+    if [[ ! -f "$INTERVALS_JSON" ]]; then
+      echo "Missing Stage 2 output: $INTERVALS_JSON (required when skipping Stage 2)" >&2
+      exit 1
+    fi
+    ALL_INTERVALS+=("$(realpath "$INTERVALS_JSON")")
+  done
+fi
 
 # --- Stage 3: Blender VSE project generation ---
 BLEND_OUTPUT="${STAGE3_DIR}/${FIRST_STEM}_edited.blend"
