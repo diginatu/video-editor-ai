@@ -133,7 +133,7 @@ if [[ ! -f "$SOURCE_PATH" ]]; then
   exit 1
 fi
 
-mkdir -p "$INPUT_VIDEOS_DIR" "$OUTPUT_DIR" cache
+mkdir -p "$INPUT_VIDEOS_DIR" "$OUTPUT_DIR" "$PROJECT_ROOT/cache"
 
 ABS_INPUT_VIDEOS="$(realpath "$INPUT_VIDEOS_DIR")"
 ABS_SOURCE="$(realpath "$SOURCE_PATH")"
