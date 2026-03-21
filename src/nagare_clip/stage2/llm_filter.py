@@ -99,12 +99,16 @@ def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
+    logger.debug("LLM request: %s", json.dumps(body, ensure_ascii=False))
+
     timeout = cfg.get("timeout", 60)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.loads(resp.read().decode("utf-8"))
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
         raise ConnectionError(f"LLM API request failed: {e}") from e
+
+    logger.debug("LLM response: %s", json.dumps(result, ensure_ascii=False))
 
     return result["choices"][0]["message"]["content"]
 

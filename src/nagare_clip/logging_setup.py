@@ -15,6 +15,7 @@ def setup_logging(level: str, log_file: str | None = None) -> None:
     """
     root = logging.getLogger()
     root.setLevel(level)
+    root.handlers.clear()
 
     console = logging.StreamHandler()
     console.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
