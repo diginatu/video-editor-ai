@@ -48,6 +48,7 @@ DEFAULTS: Dict[str, Any] = {
             "3: {{(雑音)->}}"
         ),
         "temperature": 0.1,
+        "thinking": False,
     },
     "stage3": {
         "silence_threshold": 1.5,

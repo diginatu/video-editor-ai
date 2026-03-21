@@ -88,6 +88,7 @@ def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
         "model": cfg.get("model", "gemma3:4b"),
         "messages": messages,
         "temperature": cfg.get("temperature", 0.1),
+        "think": cfg.get("thinking", False),
     }
 
     headers = {"Content-Type": "application/json"}

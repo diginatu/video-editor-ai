@@ -127,10 +127,13 @@ Stage 2 always produces `{stem}_edits.txt`. When `stage2.use_llm` is `false` (de
 stage2:
   use_llm: true
   api_base: "http://localhost:11434/v1"
-  model: "gemma3:4b"
+  model: "qwen3.5:4b"
+  thinking: false   # set true to enable Ollama thinking mode
 ```
 
 The LLM uses `{{old->new}}` inline patch syntax to mark corrections. Human editors can then review and modify the markers in `_edits.txt` before Stage 3 applies them.
+
+`thinking: true` sends `"think": true` in the API request, enabling chain-of-thought reasoning for supported models (e.g. qwen3, deepseek-r1). Ollama returns the reasoning trace in a separate field; the pipeline uses only the final answer.
 
 ## CLI
 

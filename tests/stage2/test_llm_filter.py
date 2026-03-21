@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from nagare_clip.stage2.llm_filter import (
     _apply_patches,
     _batch_lines,
+    _call_llm,
     _format_batch,
     _parse_response,
     _validate_patches,
@@ -201,3 +203,40 @@ class TestFilterTranscript:
         cfg = {"batch_size": 10, "prompt": "fix"}
         result = filter_transcript(lines, cfg)
         assert result[0] == "{{短い->短い文を長い説明に変える}}テスト"
+
+
+def _make_urlopen_mock(content: str) -> MagicMock:
+    resp_body = json.dumps({"choices": [{"message": {"content": content}}]}).encode(
+        "utf-8"
+    )
+    mock_resp = MagicMock()
+    mock_resp.read.return_value = resp_body
+    mock_resp.__enter__ = lambda s: s
+    mock_resp.__exit__ = MagicMock(return_value=False)
+    return mock_resp
+
+
+class TestCallLlmThinking:
+    @patch("urllib.request.urlopen")
+    def test_think_true_when_thinking_true(self, mock_urlopen):
+        mock_urlopen.return_value = _make_urlopen_mock("1: ok")
+        cfg = {"thinking": True, "model": "test-model", "api_base": "http://localhost/v1"}
+        _call_llm([{"role": "user", "content": "hi"}], cfg)
+        body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert body.get("think") is True
+
+    @patch("urllib.request.urlopen")
+    def test_think_false_when_thinking_false(self, mock_urlopen):
+        mock_urlopen.return_value = _make_urlopen_mock("1: ok")
+        cfg = {"thinking": False, "model": "test-model", "api_base": "http://localhost/v1"}
+        _call_llm([{"role": "user", "content": "hi"}], cfg)
+        body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert body.get("think") is False
+
+    @patch("urllib.request.urlopen")
+    def test_think_false_by_default(self, mock_urlopen):
+        mock_urlopen.return_value = _make_urlopen_mock("1: ok")
+        cfg = {"model": "test-model", "api_base": "http://localhost/v1"}
+        _call_llm([{"role": "user", "content": "hi"}], cfg)
+        body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert body.get("think") is False
