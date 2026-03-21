@@ -22,7 +22,7 @@ DEFAULTS: Dict[str, Any] = {
     },
     "stage2": {
         "use_llm": False,
-        "api_base": "http://localhost:11434/v1",
+        "api_base": "http://localhost:11434",
         "model": "qwen3.5:4b",
         "api_key": "",
         "batch_size": 10,

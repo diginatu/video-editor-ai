@@ -109,6 +109,25 @@ class TestValidatePatches:
     def test_no_patches(self):
         assert _validate_patches("plain text", "plain text")
 
+    def test_changed_text_without_markers_rejected(self):
+        """LLM changed text without {{old->new}} markers should be rejected."""
+        assert not _validate_patches("changed text", "original text")
+
+    def test_text_changed_outside_markers_rejected(self):
+        """LLM silently changed text outside markers should be rejected."""
+        # Original: "どうだろうないけるかな", LLM removed "な" outside markers
+        assert not _validate_patches(
+            "どうだろう{{いけるかな->}}",
+            "どうだろうないけるかな",
+        )
+
+    def test_valid_markers_with_unchanged_surrounding_text(self):
+        """Markers valid and surrounding text unchanged should pass."""
+        assert _validate_patches(
+            "どうだろうな{{いけるかな->}}",
+            "どうだろうないけるかな",
+        )
+
     def test_invalid_old(self):
         assert not _validate_patches("{{存在しない->修正}}テスト", "テスト")
 
@@ -142,6 +161,13 @@ class TestParseResponse:
     def test_invalid_patch_rejected(self):
         batch = [(0, "テスト")]
         response = "1: {{存在しない->修正}}テスト"
+        result = _parse_response(response, batch)
+        assert 0 not in result
+
+    def test_changed_text_without_markers_rejected(self):
+        """LLM changed text without markers should be rejected in parse."""
+        batch = [(0, "original text")]
+        response = "1: different text"
         result = _parse_response(response, batch)
         assert 0 not in result
 
@@ -206,7 +232,7 @@ class TestFilterTranscript:
 
 
 def _make_urlopen_mock(content: str) -> MagicMock:
-    resp_body = json.dumps({"choices": [{"message": {"content": content}}]}).encode(
+    resp_body = json.dumps({"message": {"content": content}, "done": True}).encode(
         "utf-8"
     )
     mock_resp = MagicMock()
@@ -220,7 +246,7 @@ class TestCallLlmThinking:
     @patch("urllib.request.urlopen")
     def test_think_true_when_thinking_true(self, mock_urlopen):
         mock_urlopen.return_value = _make_urlopen_mock("1: ok")
-        cfg = {"thinking": True, "model": "test-model", "api_base": "http://localhost/v1"}
+        cfg = {"thinking": True, "model": "test-model", "api_base": "http://localhost"}
         _call_llm([{"role": "user", "content": "hi"}], cfg)
         body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
         assert body.get("think") is True
@@ -228,7 +254,7 @@ class TestCallLlmThinking:
     @patch("urllib.request.urlopen")
     def test_think_false_when_thinking_false(self, mock_urlopen):
         mock_urlopen.return_value = _make_urlopen_mock("1: ok")
-        cfg = {"thinking": False, "model": "test-model", "api_base": "http://localhost/v1"}
+        cfg = {"thinking": False, "model": "test-model", "api_base": "http://localhost"}
         _call_llm([{"role": "user", "content": "hi"}], cfg)
         body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
         assert body.get("think") is False
@@ -236,7 +262,7 @@ class TestCallLlmThinking:
     @patch("urllib.request.urlopen")
     def test_think_false_by_default(self, mock_urlopen):
         mock_urlopen.return_value = _make_urlopen_mock("1: ok")
-        cfg = {"model": "test-model", "api_base": "http://localhost/v1"}
+        cfg = {"model": "test-model", "api_base": "http://localhost"}
         _call_llm([{"role": "user", "content": "hi"}], cfg)
         body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
         assert body.get("think") is False

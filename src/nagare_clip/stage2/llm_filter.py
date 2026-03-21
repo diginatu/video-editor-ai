@@ -80,15 +80,18 @@ def _format_batch(batch: List[Tuple[int, str]]) -> str:
 
 
 def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
-    """Call OpenAI-compatible chat completions API via urllib."""
-    api_base = cfg.get("api_base", "http://localhost:11434/v1").rstrip("/")
-    url = f"{api_base}/chat/completions"
+    """Call Ollama native chat API via urllib."""
+    api_base = cfg.get("api_base", "http://localhost:11434").rstrip("/")
+    url = f"{api_base}/api/chat"
 
     body = {
-        "model": cfg.get("model", "gemma3:4b"),
+        "model": cfg.get("model", "qwen3.5:4b"),
         "messages": messages,
-        "temperature": cfg.get("temperature", 0.1),
+        "stream": False,
         "think": cfg.get("thinking", False),
+        "options": {
+            "temperature": cfg.get("temperature", 0.1),
+        },
     }
 
     headers = {"Content-Type": "application/json"}
@@ -101,7 +104,7 @@ def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
 
     logger.debug("LLM request: %s", json.dumps(body, ensure_ascii=False))
 
-    timeout = cfg.get("timeout", 60)
+    timeout = cfg.get("timeout", 300)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             result = json.loads(resp.read().decode("utf-8"))
@@ -110,7 +113,7 @@ def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
 
     logger.debug("LLM response: %s", json.dumps(result, ensure_ascii=False))
 
-    return result["choices"][0]["message"]["content"]
+    return result["message"]["content"]
 
 
 def _parse_response(
@@ -156,6 +159,13 @@ def _validate_patches(response_text: str, original_text: str) -> bool:
     """
     markers = list(PATCH_RE.finditer(response_text))
     if not markers:
+        if response_text.strip() != original_text.strip():
+            logger.warning(
+                "LLM changed text without {{old->new}} markers, keeping original: %r -> %r",
+                original_text,
+                response_text,
+            )
+            return False
         return True
     for m in markers:
         old = m.group(1)
@@ -166,6 +176,18 @@ def _validate_patches(response_text: str, original_text: str) -> bool:
                 original_text,
             )
             return False
+
+    # Verify non-marker text wasn't silently changed: resolving markers back
+    # to their old values must reconstruct the original text.
+    reconstructed = PATCH_RE.sub(r"\1", response_text)
+    if reconstructed.strip() != original_text.strip():
+        logger.warning(
+            "LLM changed text outside {{old->new}} markers, keeping original: %r -> %r",
+            original_text,
+            reconstructed,
+        )
+        return False
+
     return True
 
 
