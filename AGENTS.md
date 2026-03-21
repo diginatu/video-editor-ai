@@ -13,6 +13,38 @@ Maintain and improve a multi-stage rough-cut pipeline:
 
 Final deliverable is a `.blend` project for human editing.
 
+## Pipeline Overview
+
+`scripts/run_pipeline.sh` orchestrates all stages end-to-end. Use `--from-stage N` to skip earlier stages and reuse their outputs.
+
+### Stage 1 — WhisperX Transcription
+
+Speech-to-text with word-level alignment. Runs in a single Docker container for all source files to avoid model reload overhead.
+
+- **Inputs:** source video files (mp4/mkv/mov/avi/webm)
+- **Outputs:** `{stem}.json` (word timings), `{stem}.txt` (plain text)
+
+### Stage 1.5 — LLM Text Filter (optional)
+
+Corrects transcription errors using an OpenAI-compatible chat API (default: Ollama). Runs per source. Enabled via `stage1_5.enabled: true` in config.
+
+- **Inputs:** `{stem}.txt`, `{stem}.json`
+- **Outputs:** `{stem}_filtered.txt`, `{stem}_filtered.json`
+
+### Stage 2 — Keep-Interval Computation
+
+NLP analysis to decide which segments to keep. Uses GiNZA/spaCy for Japanese bunsetsu segmentation. Runs per source via `uv run`.
+
+- **Inputs:** `{stem}.json` (or `{stem}_filtered.json` if Stage 1.5 ran)
+- **Outputs:** `{stem}_intervals.json` (keep intervals + captions)
+
+### Stage 3 — Blender VSE Layout
+
+Auto-assembles the rough cut in headless Blender. References original media in-place (no re-encoding). Concatenates all sources onto a single timeline.
+
+- **Inputs:** source video files, `{stem}_intervals.json` for each source
+- **Outputs:** `{stem}_edited.blend` — ready for human editing
+
 ## Hard Constraints
 
 - Dependency management uses uv + pyproject.toml.
