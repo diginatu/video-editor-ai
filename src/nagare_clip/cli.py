@@ -11,6 +11,7 @@ from typing import List, Tuple
 import spacy
 
 from nagare_clip.config import get_effective_config
+from nagare_clip.logging_setup import setup_logging
 from nagare_clip.stage3.bunsetu import build_bunsetu_times
 from nagare_clip.stage3.captions import collect_captions
 from nagare_clip.stage3.intervals import (
@@ -113,6 +114,11 @@ def parse_args() -> argparse.Namespace:
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Logging verbosity (default: INFO)",
     )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Path to log file; appends to existing file (default: console only)",
+    )
     return parser.parse_args()
 
 
@@ -164,8 +170,9 @@ def main() -> None:
     cap = s3["caption"]
     bun = s3["bunsetu"]
 
-    logging.basicConfig(
-        level=cfg["general"]["log_level"], format="%(levelname)s: %(message)s"
+    setup_logging(
+        cfg["general"]["log_level"],
+        args.log_file or cfg["general"]["log_file"] or None,
     )
 
     edits_txt = Path(args.edits_txt)

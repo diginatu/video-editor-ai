@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 
 from nagare_clip.config import get_effective_config
+from nagare_clip.logging_setup import setup_logging
 from nagare_clip.stage2.llm_filter import filter_transcript
 
 
@@ -41,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Logging verbosity (default: INFO)",
     )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Path to log file; appends to existing file (default: console only)",
+    )
     return parser.parse_args()
 
 
@@ -54,8 +60,9 @@ def main() -> None:
     config_path = Path(args.config_path) if args.config_path else None
     cfg = get_effective_config(config_path, cli_overrides)
 
-    logging.basicConfig(
-        level=cfg["general"]["log_level"], format="%(levelname)s: %(message)s"
+    setup_logging(
+        cfg["general"]["log_level"],
+        args.log_file or cfg["general"]["log_file"] or None,
     )
 
     s2 = cfg["stage2"]

@@ -12,6 +12,7 @@ import yaml
 DEFAULTS: Dict[str, Any] = {
     "general": {
         "log_level": "INFO",
+        "log_file": "",
     },
     "stage1": {
         "compute_type": "float16",

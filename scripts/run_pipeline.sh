@@ -134,6 +134,7 @@ STAGE1_DIR="${OUTPUT_DIR}/stage1"
 STAGE2_DIR="${OUTPUT_DIR}/stage2"
 STAGE3_DIR="${OUTPUT_DIR}/stage3"
 STAGE4_DIR="${OUTPUT_DIR}/stage4"
+LOG_FILE="${OUTPUT_DIR}/pipeline.log"
 
 mkdir -p "$INPUT_VIDEOS_DIR" "$STAGE1_DIR" "$STAGE2_DIR" "$STAGE3_DIR" "$STAGE4_DIR" "$PROJECT_ROOT/cache"
 
@@ -266,7 +267,8 @@ if [[ "$FROM_STAGE" = "1" || "$FROM_STAGE" = "2" ]]; then
     uv run --project "$PROJECT_ROOT" python -m nagare_clip.stage2.cli \
       --txt "${STAGE1_DIR}/${STEM}.txt" \
       --output-txt "${STAGE2_DIR}/${STEM}_edits.txt" \
-      "${CONFIG_ARGS[@]}"
+      "${CONFIG_ARGS[@]}" \
+      --log-file "$LOG_FILE"
   done
 else
   echo "[Stage 2/4] Skipped (--from-stage $FROM_STAGE)"
@@ -291,7 +293,8 @@ if [[ "$FROM_STAGE" = "1" || "$FROM_STAGE" = "2" || "$FROM_STAGE" = "3" ]]; then
       --json "${STAGE1_DIR}/${STEM}.json" \
       "${CONFIG_ARGS[@]}" \
       "${STAGE3_OVERRIDE_ARGS[@]}" \
-      --output "$INTERVALS_JSON"
+      --output "$INTERVALS_JSON" \
+      --log-file "$LOG_FILE"
 
     ALL_INTERVALS+=("$(realpath "$INTERVALS_JSON")")
   done
@@ -326,7 +329,8 @@ blender --background --factory-startup --python-exit-code 1 --python "$PROJECT_R
   "${STAGE4_SOURCE_ARGS[@]}" \
   "${STAGE4_INTERVALS_ARGS[@]}" \
   --output "$BLEND_OUTPUT" \
-  "${CONFIG_ARGS[@]}"
+  "${CONFIG_ARGS[@]}" \
+  --log-file "$LOG_FILE"
 
 # Cleanup any copied source files
 for f in "${CLEANUP_COPIES[@]}"; do

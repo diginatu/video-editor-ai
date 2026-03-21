@@ -5,6 +5,7 @@
 
 general:
   log_level: INFO   # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  log_file: ""      # Path to log file; empty = console only (run_pipeline.sh sets this automatically)
 
 stage1:
   compute_type: float16

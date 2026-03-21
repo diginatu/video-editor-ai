@@ -18,15 +18,13 @@ if str(_SRC) not in sys.path:
 import bpy
 
 from nagare_clip.config import get_effective_config
+from nagare_clip.logging_setup import setup_logging
 from nagare_clip.stage4.scene import load_source_metadata, reset_scene
 from nagare_clip.stage4.timeline import (
     build_timeline_map,
     place_captions,
     place_strips,
 )
-
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
 
 def parse_blender_args(argv: list[str]) -> argparse.Namespace:
     if "--" not in argv:
@@ -48,6 +46,11 @@ def parse_blender_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--config", dest="config_path", default=None, help="Path to YAML config file"
     )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Path to log file; appends to existing file (default: console only)",
+    )
     return parser.parse_args(user_args)
 
 
@@ -56,6 +59,11 @@ def main() -> None:
 
     config_path = Path(args.config_path) if args.config_path else None
     cfg = get_effective_config(config_path)
+
+    setup_logging(
+        cfg["general"]["log_level"],
+        args.log_file or cfg["general"]["log_file"] or None,
+    )
 
     sources = [Path(s).expanduser().resolve() for s in args.sources]
     intervals_paths = [Path(p).expanduser().resolve() for p in args.intervals_paths]
