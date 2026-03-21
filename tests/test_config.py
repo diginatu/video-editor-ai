@@ -148,3 +148,15 @@ class TestGetEffectiveConfig:
         assert cfg["custom_section"]["key"] == "value"
         # Defaults still present
         assert "stage3" in cfg
+
+    def test_stage1_language_default(self):
+        cfg = get_effective_config(None)
+        assert cfg["stage1"]["language"] == "ja"
+
+    def test_stage1_language_config_override(self, tmp_path: Path):
+        cfg_file = tmp_path / "cfg.yml"
+        cfg_file.write_text(yaml.dump({"stage1": {"language": "en"}}))
+        cfg = get_effective_config(cfg_file)
+        assert cfg["stage1"]["language"] == "en"
+        # Other stage1 defaults intact
+        assert cfg["stage1"]["compute_type"] == "float16"

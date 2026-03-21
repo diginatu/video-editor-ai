@@ -19,14 +19,14 @@ Output is a reviewable `.blend`, not a final rendered export.
 - Stage 2 is a mandatory text editing checkpoint. When `use_llm: false` (default), it copies Stage 1 `.txt` to `_edits.txt`. When enabled, it runs LLM-based correction and preserves `{{old->new}}` markers in the output for human review. Humans can edit `_edits.txt` then resume with `--from-stage 3`.
 - Stage 3 applies `{{old->new}}` patches from `_edits.txt`, syncs corrected text back into WhisperX JSON timing data, then computes keep intervals. Interval logic uses silence exclusion on WhisperX word timings with a configurable per-word span cap (default 0.6s), merge/invert, min keep filtering, configurable pre/post keep margins (default 1s) with overlap merge, and GiNZA bunsetsu-based caption chunking split on silence gaps and keep-boundary crossings. Bunsetsu timing uses `ginza.bunsetu_spans(doc)` (GiNZA/spaCy) so particles and auxiliaries attach to the preceding content word. It detects large intra-bunsetsu character gaps from WhisperX misalignment and snaps the bunsetsu start forward to the later character cluster. Captions are preserved as transcript chunks, keep intervals are expanded to cover caption spans, and minimum keep duration is re-applied afterward to reduce tiny strips.
 - Stage 4 modules implement Blender arg split (`--`), source metadata detection (with configurable default FPS), VSE strip packing, caption placement (style from config), and `.blend` save.
-- `scripts/run_pipeline.sh` implemented and tested end-to-end with configurable input (`--input-videos-dir`, default `src_video`) and output (`--output-dir`, default `output`) directories shared with Docker Compose. Supports `--config FILE` with precedence logic: CLI > config file > defaults. Config-file values for `stage1` (`compute_type`, `batch_size`, `align_model`) and `pipeline` (`input_videos_dir`, `output_dir`) are read directly in the shell via Python/yaml; `stage3`/`stage4` config is forwarded as `--config` to the respective Python processes.
+- `scripts/run_pipeline.sh` implemented and tested end-to-end with configurable input (`--input-videos-dir`, default `src_video`) and output (`--output-dir`, default `output`) directories shared with Docker Compose. Supports `--config FILE` with precedence logic: CLI > config file > defaults. Config-file values for `stage1` (`compute_type`, `batch_size`, `align_model`, `language`) and `pipeline` (`input_videos_dir`, `output_dir`) are read directly in the shell via Python/yaml; `stage3`/`stage4` config is forwarded as `--config` to the respective Python processes. The `language` parameter is now an optional `--language` flag (default `ja`), also settable via `stage1.language` in the config file.
 
 ## Validated End-to-End Run
 
 Test command:
 
 ```bash
-./scripts/run_pipeline.sh "input/2022-05-28 23.00.21.mp4" ja
+./scripts/run_pipeline.sh "input/2022-05-28 23.00.21.mp4"
 ```
 
 Observed outputs:

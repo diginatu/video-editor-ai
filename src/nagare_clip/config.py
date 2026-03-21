@@ -17,6 +17,7 @@ DEFAULTS: Dict[str, Any] = {
         "compute_type": "float16",
         "batch_size": 16,
         "align_model": "",
+        "language": "ja",
     },
     "stage2": {
         "use_llm": False,

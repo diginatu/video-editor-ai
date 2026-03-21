@@ -102,7 +102,7 @@ All tunable parameters are centralised in `src/nagare_clip/config.py`:
 
 Both `cli.py` (Stage 3) and `blender_cli.py` (Stage 4) accept a `--config <path>` flag that is passed through by `scripts/run_pipeline.sh` when `--config` is provided.
 
-`scripts/run_pipeline.sh` also reads `pipeline.*` and `stage1.*` config keys directly via Python/yaml for Docker Compose arguments that are not forwarded to a Python CLI.
+`scripts/run_pipeline.sh` also reads `pipeline.*` and `stage1.*` config keys directly via Python/yaml for Docker Compose arguments that are not forwarded to a Python CLI. This includes `stage1.language` (default `ja`).
 
 ## Current Runtime Quirks
 
@@ -144,9 +144,9 @@ If environment allows, also validate with a full run:
 
 ```bash
 # Single source
-./scripts/run_pipeline.sh --source input/<sample>.mp4 ja
+./scripts/run_pipeline.sh --source input/<sample>.mp4
 # All videos in default directory
-./scripts/run_pipeline.sh ja
+./scripts/run_pipeline.sh
 ```
 
 ## Documentation Policy

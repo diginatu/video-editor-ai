@@ -7,11 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 usage() {
-  echo "Usage: ./scripts/run_pipeline.sh [OPTIONS] <language>"
+  echo "Usage: ./scripts/run_pipeline.sh [OPTIONS]"
   echo ""
   echo "Options:"
   echo "  --source            FILE  Source video file (may be repeated; default: all videos in input-videos-dir)"
   echo "  --config            FILE  Path to YAML config file"
+  echo "  --language          LANG  Language code for WhisperX (default: ja)"
   echo "  --input-videos-dir  DIR   Directory containing source videos (default: src_video)"
   echo "  --output-dir        DIR   Root output directory; stage outputs go to stage1/, stage2/, stage3/, stage4/ subdirs (default: output)"
   echo "  --pre-margin        SEC   Seconds to extend keep intervals before start (default: 1.0)"
@@ -20,9 +21,6 @@ usage() {
   echo "  --align-model       MODEL HuggingFace model ID for WhisperX alignment"
   echo "                            Japanese default: vumichien/wav2vec2-large-xlsr-japanese"
   echo "                            English default: (whisperx built-in)"
-  echo ""
-  echo "Positional:"
-  echo "  language                  Language code, e.g. ja, en"
 }
 
 CONFIG_FILE=""
@@ -38,6 +36,7 @@ CLI_OUTPUT_DIR=""
 CLI_PRE_MARGIN=""
 CLI_POST_MARGIN=""
 CLI_ALIGN_MODEL=""
+CLI_LANGUAGE=""
 CLI_SILENCE_THRESHOLD=""
 CLI_MIN_KEEP=""
 CLI_FROM_STAGE=""
@@ -53,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --pre-margin) CLI_PRE_MARGIN="$2"; shift 2 ;;
     --post-margin) CLI_POST_MARGIN="$2"; shift 2 ;;
     --align-model) CLI_ALIGN_MODEL="$2"; shift 2 ;;
+    --language) CLI_LANGUAGE="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     --) shift; break ;;
     -*) echo "Unknown option: $1" >&2; usage >&2; exit 1 ;;
@@ -60,19 +60,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-LANGUAGE="${1:-}"
-
-if [[ -z "$LANGUAGE" ]]; then
-  usage >&2
-  exit 1
-fi
-
 # --- Resolve config file values for pipeline/stage1 settings ---
 CFG_INPUT_VIDEOS_DIR=""
 CFG_OUTPUT_DIR=""
 CFG_PRE_MARGIN=""
 CFG_POST_MARGIN=""
 CFG_ALIGN_MODEL=""
+CFG_LANGUAGE=""
 CFG_SILENCE_THRESHOLD=""
 CFG_MIN_KEEP=""
 CFG_FROM_STAGE=""
@@ -99,6 +93,7 @@ def out(name, val):
 out('CFG_COMPUTE_TYPE', s1.get('compute_type'))
 out('CFG_BATCH_SIZE', s1.get('batch_size'))
 out('CFG_ALIGN_MODEL', s1.get('align_model'))
+out('CFG_LANGUAGE', s1.get('language'))
 out('CFG_SILENCE_THRESHOLD', s3.get('silence_threshold'))
 out('CFG_MIN_KEEP', s3.get('min_keep'))
 out('CFG_PRE_MARGIN', s3.get('pre_margin'))
@@ -111,6 +106,7 @@ out('CFG_FROM_STAGE', p.get('from_stage'))
 fi
 
 # Precedence: CLI > config > defaults
+LANGUAGE="${CLI_LANGUAGE:-${CFG_LANGUAGE:-ja}}"
 INPUT_VIDEOS_DIR="${CLI_INPUT_VIDEOS_DIR:-${CFG_INPUT_VIDEOS_DIR:-src_video}}"
 OUTPUT_DIR="${CLI_OUTPUT_DIR:-${CFG_OUTPUT_DIR:-output}}"
 PRE_MARGIN="${CLI_PRE_MARGIN:-${CFG_PRE_MARGIN:-1.0}}"

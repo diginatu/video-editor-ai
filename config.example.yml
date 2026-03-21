@@ -9,6 +9,7 @@ general:
 stage1:
   compute_type: float16
   batch_size: 16
+  language: ja              # ISO 639-1 language code passed to WhisperX (e.g. ja, en)
   # align_model: vumichien/wav2vec2-large-xlsr-japanese
 
 stage2:

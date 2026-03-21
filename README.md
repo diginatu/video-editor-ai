@@ -13,9 +13,9 @@ The pipeline creates a rough-cut Blender project for human review and fine-tunin
 
 ## Human Editing Workflow
 
-1. Run stages 1–2: `./scripts/run_pipeline.sh --from-stage 1 ja` (or just stages 1–2)
+1. Run stages 1–2: `./scripts/run_pipeline.sh` (or just stages 1–2)
 2. Edit `output/stage2/{stem}_edits.txt` — add/modify `{{old->new}}` patch markers
-3. Resume: `./scripts/run_pipeline.sh --from-stage 3 --source myvideo.mp4 ja`
+3. Resume: `./scripts/run_pipeline.sh --from-stage 3 --source myvideo.mp4`
 
 The `{{old->new}}` syntax replaces `old` with `new` in the transcript. Use `{{delete->}}` to remove text, `{{->insert}}` to insert text.
 
@@ -48,44 +48,50 @@ uv run pytest
 2. Run the full pipeline — processes all videos in `src_video/` alphabetically:
 
 ```bash
-./scripts/run_pipeline.sh ja
+./scripts/run_pipeline.sh
 ```
 
 Or target a single file with `--source`:
 
 ```bash
-./scripts/run_pipeline.sh --source myvideo.mp4 ja
+./scripts/run_pipeline.sh --source myvideo.mp4
 ```
 
 Pass custom locations with options:
 
 ```bash
-./scripts/run_pipeline.sh --input-videos-dir my_videos --output-dir my_out ja
+./scripts/run_pipeline.sh --input-videos-dir my_videos --output-dir my_out
 ```
 
 Use a YAML config file to tune pipeline parameters (see `config.example.yml`):
 
 ```bash
-./scripts/run_pipeline.sh --config my_project.yml ja
+./scripts/run_pipeline.sh --config my_project.yml
+```
+
+Override the language (default is `ja`):
+
+```bash
+./scripts/run_pipeline.sh --language en
 ```
 
 Re-run from a specific stage (skip expensive earlier stages when iterating on config):
 
 ```bash
 # Skip Stage 1, reuse existing WhisperX output, re-run Stage 2 + 3 + 4
-./scripts/run_pipeline.sh --from-stage 2 --source myvideo.mp4 ja
+./scripts/run_pipeline.sh --from-stage 2 --source myvideo.mp4
 
 # Skip Stage 1–2, apply edits and regenerate intervals + Blender project
-./scripts/run_pipeline.sh --from-stage 3 --source myvideo.mp4 ja
+./scripts/run_pipeline.sh --from-stage 3 --source myvideo.mp4
 
 # Skip Stage 1–3, only regenerate the Blender project
-./scripts/run_pipeline.sh --from-stage 4 --source myvideo.mp4 ja
+./scripts/run_pipeline.sh --from-stage 4 --source myvideo.mp4
 ```
 
 Override the alignment model (e.g. to revert to the WhisperX built-in default for Japanese):
 
 ```bash
-./scripts/run_pipeline.sh --align-model jonatasgrosman/wav2vec2-large-xlsr-53-japanese ja
+./scripts/run_pipeline.sh --align-model jonatasgrosman/wav2vec2-large-xlsr-53-japanese
 ```
 
 This produces outputs under `output/` (or your `--output-dir`), including:
@@ -102,7 +108,7 @@ All pipeline parameters can be controlled via a YAML config file. Copy `config.e
 ```bash
 cp config.example.yml my_project.yml
 # edit my_project.yml as needed
-./scripts/run_pipeline.sh --config my_project.yml ja
+./scripts/run_pipeline.sh --config my_project.yml
 ```
 
 Parameters resolve in this priority order (highest wins):
@@ -129,12 +135,13 @@ The LLM uses `{{old->new}}` inline patch syntax to mark corrections. Human edito
 ## CLI
 
 ```bash
-./scripts/run_pipeline.sh [OPTIONS] <language>
+./scripts/run_pipeline.sh [OPTIONS]
 ```
 
 Options:
 - `--source FILE` — source video file (may be repeated for multiple sources); when omitted, all videos in `--input-videos-dir` are processed alphabetically.
 - `--config FILE` — path to a YAML config file; config values fill in between CLI overrides and built-in defaults.
+- `--language LANG` — ISO 639-1 language code passed to WhisperX (default: `ja`). Also settable via `stage1.language` in config.
 - `--from-stage N` — start from stage N (1, 2, 3, or 4); reuses earlier stage outputs. Also settable via `pipeline.from_stage` in config.
 - Defaults: input videos under `src_video/`, outputs under `output/`.
 - If `--source` contains `/`, it is treated as the exact path; otherwise it is resolved inside `--input-videos-dir`.
