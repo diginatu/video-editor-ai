@@ -300,9 +300,12 @@ def place_captions(
                 offset_start = sec_to_frames(
                     clamped_start - entry["src_start"], effective_fps
                 )
-                duration_sec = clamped_end - clamped_start
-                length = max(1, sec_to_frames(duration_sec, effective_fps))
+                offset_end = sec_to_frames(
+                    clamped_end - entry["src_start"], effective_fps
+                )
                 tl_start = entry["tl_start"] + offset_start
+                tl_end = entry["tl_start"] + offset_end
+                length = max(1, tl_end - tl_start)
                 tl_end = tl_start + length
                 break
 
