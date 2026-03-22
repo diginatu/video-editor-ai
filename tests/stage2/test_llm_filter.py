@@ -289,3 +289,25 @@ class TestCallLlmThinking:
         _call_llm([{"role": "user", "content": "hi"}], cfg)
         body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
         assert body.get("think") == "low"
+
+
+class TestCallLlmResponseFormat:
+    @patch("urllib.request.urlopen")
+    def test_format_json_when_response_format_set(self, mock_urlopen):
+        mock_urlopen.return_value = _make_urlopen_mock('{"key": "value"}')
+        cfg = {
+            "response_format": "json",
+            "model": "test-model",
+            "api_base": "http://localhost",
+        }
+        _call_llm([{"role": "user", "content": "hi"}], cfg)
+        body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert body.get("format") == "json"
+
+    @patch("urllib.request.urlopen")
+    def test_no_format_when_response_format_not_set(self, mock_urlopen):
+        mock_urlopen.return_value = _make_urlopen_mock("1: ok")
+        cfg = {"model": "test-model", "api_base": "http://localhost"}
+        _call_llm([{"role": "user", "content": "hi"}], cfg)
+        body = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert "format" not in body

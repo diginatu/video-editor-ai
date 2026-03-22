@@ -160,3 +160,24 @@ class TestGetEffectiveConfig:
         assert cfg["stage1"]["language"] == "en"
         # Other stage1 defaults intact
         assert cfg["stage1"]["compute_type"] == "float16"
+
+    def test_summary_llm_defaults_present(self):
+        cfg = get_effective_config(None)
+        slm = cfg["stage2"]["summary_llm"]
+        assert slm["enabled"] is False
+        assert "model" in slm
+        assert "api_base" in slm
+        assert "prompt" in slm
+        assert slm["response_format"] == "json"
+
+    def test_summary_llm_config_override(self, tmp_path: Path):
+        cfg_file = tmp_path / "cfg.yml"
+        cfg_file.write_text(
+            yaml.dump({"stage2": {"summary_llm": {"model": "gemma3:27b"}}})
+        )
+        cfg = get_effective_config(cfg_file)
+        assert cfg["stage2"]["summary_llm"]["model"] == "gemma3:27b"
+        # Other summary_llm defaults intact
+        assert cfg["stage2"]["summary_llm"]["enabled"] is False
+        # Other stage2 defaults intact
+        assert cfg["stage2"]["batch_size"] == 10

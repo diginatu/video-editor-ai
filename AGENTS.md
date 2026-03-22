@@ -69,6 +69,7 @@ src/nagare_clip/          # Main Python package (src layout)
   stage2/                     # Stage 2 modules (text editing checkpoint)
     cli.py                    # Stage 2 CLI entry point
     llm_filter.py             # LLM API calls, {{old->new}} patch parsing, apply_patches_to_lines()
+    summary_llm.py            # Summary LLM: generates transcript summary + keywords for filter context
   stage3/                     # Stage 3 modules (patch application + intervals)
     sync_json.py              # Sync corrected text back into WhisperX JSON
     bunsetu.py                # Bunsetsu-level timing (GiNZA)
@@ -107,6 +108,7 @@ Both `cli.py` (Stage 3) and `blender_cli.py` (Stage 4) accept a `--config <path>
 ## Current Runtime Quirks
 
 - Stage 2 is a mandatory text editing checkpoint. When `use_llm: false` (default), copies Stage 1 `.txt` to `_edits.txt`. When `use_llm: true`, runs LLM filter via Ollama native chat API (default: `localhost:11434`) and preserves `{{old->new}}` markers in output. Falls back to original text on any LLM or parse failure. `stage2.thinking` (default `false`) controls thinking mode: accepts `true`/`false` or a string level (`"low"`, `"medium"`, `"high"`) for models that support it (e.g. Qwen 3.5); the value is sent as `"think"` in the API request.
+- Stage 2 optionally runs a **summary LLM** (`stage2.summary_llm.enabled: true`) before filtering. It sends the full transcript to a (potentially different) LLM that returns a JSON object with `summary` and `keywords` (rare/domain-specific words). These are appended to the filter LLM's system prompt so it can better correct mis-dictated rare words. Uses Ollama `format: "json"` for reliable parsing. The summary LLM has its own independent config (model, api_base, temperature, etc.). Falls back gracefully if the summary call fails.
 - Stage 3 reads `_edits.txt`, applies `{{old->new}}` patches via `apply_patches_to_lines()`, syncs clean text back into WhisperX JSON via `sync_text_to_json()`, then computes intervals.
 - Stage 3 keep intervals are expanded by configurable pre/post margins (defaults 1.0s) and merged before Blender export.
 - Stage 3 silence-based keep-interval detection uses WhisperX word timings (`word.start`/`word.end`) with a 0.6s per-word span cap so inflated token ends do not hide pauses. The cap is controlled by `stage3.bunsetu.silence_max_word_span` in the config.

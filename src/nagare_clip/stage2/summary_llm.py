@@ -1,0 +1,78 @@
+"""Summary LLM: generates transcript summary and keywords for the filter LLM."""
+
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass
+from typing import Any, Dict, List
+
+from nagare_clip.stage2.llm_filter import _call_llm
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SummaryResult:
+    summary: str
+    keywords: List[str]
+
+
+def parse_summary_response(response: str) -> SummaryResult | None:
+    """Parse JSON response with ``summary`` and ``keywords`` fields."""
+    try:
+        data = json.loads(response)
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    summary = data.get("summary")
+    keywords = data.get("keywords")
+
+    if not isinstance(summary, str) or not isinstance(keywords, list):
+        return None
+
+    return SummaryResult(
+        summary=summary,
+        keywords=[str(k).strip() for k in keywords],
+    )
+
+
+def build_enhanced_prompt(base_prompt: str, summary: SummaryResult) -> str:
+    """Append summary and keywords context to the filter LLM's base prompt."""
+    parts = [base_prompt, "", "Context about this transcript:"]
+    parts.append(f"Summary: {summary.summary}")
+    if summary.keywords:
+        kw_str = ", ".join(summary.keywords)
+        parts.append(f"Keywords (correct spellings): {kw_str}")
+        parts.append(
+            "When you see words that sound similar to these keywords, "
+            "correct them."
+        )
+    return "\n".join(parts)
+
+
+def generate_summary(
+    full_text: str, cfg: Dict[str, Any]
+) -> SummaryResult | None:
+    """Call the summary LLM and return parsed result, or None on failure."""
+    if not full_text.strip():
+        return None
+
+    messages = [
+        {"role": "system", "content": cfg.get("prompt", "")},
+        {"role": "user", "content": full_text},
+    ]
+
+    try:
+        response = _call_llm(messages, cfg)
+    except Exception:
+        logger.warning("Summary LLM call failed, proceeding without summary", exc_info=True)
+        return None
+
+    result = parse_summary_response(response)
+    if result is None:
+        logger.warning("Failed to parse summary LLM response: %s", response[:200])
+    return result

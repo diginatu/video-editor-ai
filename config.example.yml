@@ -23,6 +23,15 @@ stage2:
   # prompt: "..."              # System prompt for LLM (has sensible default for Japanese)
   temperature: 0.1             # LLM sampling temperature
   thinking: false              # Thinking mode: true/false, or string level ("low", "medium", "high") for models that support it
+  summary_llm:                   # Summary LLM: generates context (summary + keywords) for the filter LLM
+    enabled: false               # Enable summary generation before filtering
+    api_base: "http://localhost:11434"  # API base URL (can differ from filter LLM)
+    model: "qwen3.5:4b"         # Model for summarization (can use a larger model)
+    api_key: ""                  # API key (empty = no auth)
+    temperature: 0.3             # Higher temperature for summarization
+    thinking: false              # Thinking mode for summary LLM
+    timeout: 120                 # Longer timeout since full transcript is sent
+    # prompt: "..."              # System prompt for summary LLM (has sensible default)
 
 stage3:
   silence_threshold: 1.5     # Silence gap threshold in seconds

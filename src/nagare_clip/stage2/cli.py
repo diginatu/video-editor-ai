@@ -15,6 +15,7 @@ from nagare_clip.config import get_effective_config
 from nagare_clip.logging_setup import setup_logging
 from nagare_clip.stage2.llm_filter import filter_transcript
 from nagare_clip.stage2.rule_filter import remove_midstream_closing
+from nagare_clip.stage2.summary_llm import build_enhanced_prompt, generate_summary
 
 
 def parse_args() -> argparse.Namespace:
@@ -86,8 +87,22 @@ def main() -> None:
     else:
         logging.info("Stage 2: filtering %d lines with AI", len(lines))
 
+        # Summary LLM — generate context for the filter LLM
+        filter_cfg = dict(s2)
+        summary_cfg = s2.get("summary_llm", {})
+        if summary_cfg.get("enabled", False):
+            summary_result = generate_summary("\n".join(lines), summary_cfg)
+            if summary_result is not None:
+                filter_cfg["prompt"] = build_enhanced_prompt(
+                    s2.get("prompt", ""), summary_result
+                )
+                logging.info(
+                    "Stage 2: summary generated, %d keywords",
+                    len(summary_result.keywords),
+                )
+
         # AI filter — returns lines with {{old->new}} markers preserved
-        result_lines = filter_transcript(lines, s2)
+        result_lines = filter_transcript(lines, filter_cfg)
 
         # Count changes
         changes = sum(1 for o, c in zip(lines, result_lines) if o != c)

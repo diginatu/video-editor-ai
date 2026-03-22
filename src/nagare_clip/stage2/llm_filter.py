@@ -84,7 +84,7 @@ def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
     api_base = cfg.get("api_base", "http://localhost:11434").rstrip("/")
     url = f"{api_base}/api/chat"
 
-    body = {
+    body: Dict[str, Any] = {
         "model": cfg.get("model", "qwen3.5:4b"),
         "messages": messages,
         "stream": False,
@@ -93,6 +93,10 @@ def _call_llm(messages: List[Dict[str, str]], cfg: Dict[str, Any]) -> str:
             "temperature": cfg.get("temperature", 0.1),
         },
     }
+
+    response_format = cfg.get("response_format")
+    if response_format:
+        body["format"] = response_format
 
     headers = {"Content-Type": "application/json"}
     api_key = cfg.get("api_key", "")

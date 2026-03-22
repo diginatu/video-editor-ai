@@ -50,6 +50,25 @@ DEFAULTS: Dict[str, Any] = {
         ),
         "temperature": 0.1,
         "thinking": False,
+        "summary_llm": {
+            "enabled": False,
+            "api_base": "http://localhost:11434",
+            "model": "qwen3.5:4b",
+            "api_key": "",
+            "temperature": 0.3,
+            "thinking": False,
+            "timeout": 120,
+            "response_format": "json",
+            "prompt": (
+                "Analyze the following Japanese transcript from a video.\n"
+                "Provide a JSON object with:\n"
+                '- "summary": A very short summary (1-2 sentences) of the content.\n'
+                '- "keywords": A list of rare or domain-specific words that speech '
+                "recognition might misspell.\n"
+                "\n"
+                "Output only the JSON object, no other text."
+            ),
+        },
     },
     "stage3": {
         "silence_threshold": 1.5,

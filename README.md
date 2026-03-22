@@ -135,6 +135,20 @@ The LLM uses `{{old->new}}` inline patch syntax to mark corrections. Human edito
 
 `thinking` sends `"think"` in the Ollama API request, enabling chain-of-thought reasoning for supported models (e.g. qwen3, deepseek-r1). Set `true`/`false`, or a string level like `"low"`, `"medium"`, `"high"` for models that support granular control (e.g. Qwen 3.5). Ollama returns the reasoning trace in a separate field; the pipeline uses only the final answer.
 
+#### Summary LLM (optional)
+
+When `stage2.summary_llm.enabled` is `true`, a separate LLM analyzes the full transcript before filtering to generate a short summary and a list of rare/domain-specific keywords. These are appended to the filter LLM's system prompt so it can better correct mis-dictated words. The summary LLM has its own independent config (model, api_base, temperature, etc.), so you can use a larger model for summarization and a smaller one for filtering.
+
+```yaml
+stage2:
+  use_llm: true
+  summary_llm:
+    enabled: true
+    model: "gemma3:27b"    # can use a different/larger model
+```
+
+Falls back gracefully if the summary LLM call fails — filtering proceeds without the extra context.
+
 ## CLI
 
 ```bash
