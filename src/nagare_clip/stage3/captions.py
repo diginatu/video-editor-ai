@@ -37,7 +37,7 @@ def expand_short_captions(
         deficit = min_duration - speech_dur
         half = deficit / 2.0
 
-        lo = float(captions[i - 1]["end"]) if i > 0 else 0.0
+        lo = float(result[-1]["end"]) if result else 0.0
         hi = float(captions[i + 1]["start"]) if i < n - 1 else duration_sec
 
         # First pass: symmetric expansion clamped to neighbors

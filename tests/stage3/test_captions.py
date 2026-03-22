@@ -156,3 +156,25 @@ def test_expand_short_min_duration_zero_noop():
     ]
     result = expand_short_captions(captions, min_duration=0.0, duration_sec=10.0)
     assert result == captions
+
+
+def test_expand_short_consecutive_no_overlap():
+    """Two consecutive short captions must not overlap after expansion."""
+    captions = [
+        {"start": 0.0, "end": 1.5, "text": "前"},
+        {"start": 5.0, "end": 5.2, "text": "短A"},  # 0.2s — needs expansion
+        {"start": 5.5, "end": 5.7, "text": "短B"},  # 0.2s — needs expansion
+        {"start": 10.0, "end": 11.5, "text": "後"},
+    ]
+    result = expand_short_captions(captions, min_duration=1.5, duration_sec=20.0)
+
+    assert len(result) == 4
+    assert result[1]["text"] == "短A"
+    assert result[2]["text"] == "短B"
+
+    # No overlap between any consecutive pair
+    for j in range(len(result) - 1):
+        assert result[j]["end"] <= result[j + 1]["start"], (
+            f"Overlap between caption {j} (end={result[j]['end']}) "
+            f"and caption {j + 1} (start={result[j + 1]['start']})"
+        )
